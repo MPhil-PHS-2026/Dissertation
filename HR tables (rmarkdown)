@@ -6,7 +6,7 @@ date: "2026-06-08"
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
-setwd("D:/HannahNicoll")
+setwd("D:/FirstnameLastname")
 ```
 
 ```{r load packages}
@@ -564,7 +564,7 @@ primary_aim_table_MI
 primary_aim_table_MI <- primary_aim_table_MI %>% 
   subset(select = c("Predictor", "Category", "HR (95% CI) 1", "HR (95% CI) 2", "HR (95% CI) 3"))
 #redo this so the p-value is a * - this information is not needed 
-setwd("D:/HannahNicoll/Tibbles")
+setwd("D:/FirstnameLastname/Tibbles")
 write.table(primary_aim_table_MI, file = "Primary aim table MI 0207", sep = ",", quote = FALSE, row.names = FALSE)
 ```
 ```{r model 2}
@@ -710,7 +710,7 @@ secondary_aim_table <- rbind(DM_table, Hb_table, alb_table, hyp_table, BMI_table
 #colnames(secondary_aim_table)[colnames(secondary_aim_table) == "p.value"] <- "P-value"
 
 secondary_aim_table
-setwd("D:/HannahNicoll/Tibbles") #or I should make one big tibble
+setwd("D:/FirstnameLastname/Tibbles") #or I should make one big tibble
 write.table(secondary_aim_table, file = "Secondary aim table MI 0207", sep = ",", quote = FALSE, row.names = FALSE)
 
 ```
@@ -835,7 +835,7 @@ eGFRcox_table <- eGFRcox_table %>%
   subset(select = c("Category", "HR (95% CI)"))
 primary_aim_table_2020 <- eGFRcox_table
 
-setwd("D:/HannahNicoll/Tibbles") #or I should make one big tibble
+setwd("D:/FirstnameLastname/Tibbles") #or I should make one big tibble
 write.table(primary_aim_table_2020, file = "Primary aim table 2020", sep = ",", quote = FALSE, row.names = FALSE)
 
 ```
@@ -917,7 +917,7 @@ eGFRcrecox_table <- eGFRcrecox_table %>%
   subset(select = c("Predictor", "Category", "HR (95% CI)", "p.value"))
 
 primary_aim_table_cre <- eGFRcrecox_table
-setwd("D:/HannahNicoll/Tibbles")
+setwd("D:/FirstnameLastname/Tibbles")
 write.table(primary_aim_table_cre, file = "Primary aim table cre", sep = ",", quote = FALSE, row.names = FALSE)
 ```
 
@@ -956,7 +956,7 @@ eGFRcreCCAcox_table <- eGFRcreCCAcox_table %>%
   subset(select = c("Predictor", "Category", "HR (95% CI)", "p.value"))
 
 primary_aim_table_CCA_cre <- eGFRcreCCAcox_table
-setwd("D:/HannahNicoll/Tibbles")
+setwd("D:/FirstnameLastname/Tibbles")
 write.table(primary_aim_table_CCA_cre, file = "Primary aim table CCA cre", sep = ",", quote = FALSE, row.names = FALSE)
 ```
 
@@ -988,7 +988,7 @@ big_sensitivity <- left_join(big_sensitivity, primary_aim_table_2020_2, by = "Ca
 big_sensitivity <- left_join(big_sensitivity, primary_aim_table_cre_2, by = "Category")
 big_sensitivity
 
-setwd("D:/HannahNicoll/Tibbles")
+setwd("D:/FirstnameLastname/Tibbles")
 write.table(big_sensitivity, file = "Primary aim sensitivity table 0207", sep = ",", quote = FALSE, row.names = FALSE)
 
 ```
@@ -1040,7 +1040,7 @@ secondary_aim_table_MI <- fullMI_table
 big_sensitivity2 <- left_join(secondary_aim_table_MI, secondary_aim_table_CCA, by = "Category")
 big_sensitivity2 <- left_join(big_sensitivity2, secondary_aim_table_2020, by = "Category")
 
-setwd("D:/HannahNicoll/Tibbles")
+setwd("D:/FirstnameLastname/Tibbles")
 write.table(big_sensitivity2, file = "Secondary aim sensitivity table 0207", sep = ",", quote = FALSE, row.names = FALSE)
 
 ```
