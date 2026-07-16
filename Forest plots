@@ -1,0 +1,286 @@
+---
+title: "Forest plots for HR making"
+output: html_document
+date: "2026-05-25"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r load relevant packages}
+library(tidyverse)
+library(gt)
+library(patchwork)
+library(survival)
+library(collapse)
+load("categorised.RData")
+```
+Credit to https://www.khstats.com/blog/forest-plots/ for the base code used to create these forest plots. All manipulations from the base code conducted by myself. 
+
+#Primary aim, missing data indicator
+
+```{r sort out data}
+res_model <- coxph(Surv(days_to_event, death_event) ~ CKD_category + Phy_Sex + age_category + DM_category + Hb_category + alb_category + hyp_category, data = categorised)
+#make the res object
+fit <- summary(res_model)
+fit
+res_coef <- fit$coefficients
+res_coef
+res_ci <- confint(res_model)
+res_ci <- exp(res_ci)
+res_full <- cbind(res_coef, res_ci)
+res_full
+res_full2 <- res_full %>% 
+  subset(select = c("exp(coef)", "Pr(>|z|)", "2.5 %", "97.5 %"))
+#res_full3 <- res_full2[c(1:10, 12),]
+#res_full3  
+res_full3 <- res_full2[1:10,]
+  
+res <- res_full3
+
+#change names of res
+colnames(res)[colnames(res) == "exp(coef)"] <- "estimate"
+colnames(res)[colnames(res) == "Pr(>|z|)"] <- "p.value"
+colnames(res)[colnames(res) == "2.5 %"] <- "conf.low"
+colnames(res)[colnames(res) == "97.5 %"] <- "conf.high"
+
+#add row names as a column
+ckd <- c(" ", " ", " ", " ")
+age <- c(" ", " ", " ", " ")
+sex <- c(" ", " ", " ", " ")
+
+other <- rbind(res, ckd, age, sex)
+other
+
+model_other <- c("45-59 ", "30-44 ", "15-29 ", "<15 ", "No data", "Male", "70-79", "80-89", "Over 90",  "Under 60", "eGFR (Reference >60)", "Age (Reference 60-69)", "Sex (Reference Female)")
+other <- cbind(other, model_other)
+other
+other.df <- as.data.frame(other)
+other.df$estimate <- as.numeric(other.df$estimate)
+other.df$p.value <- as.numeric(other.df$p.value)
+other.df$conf.low <- as.numeric(other.df$conf.low)
+other.df$conf.high <- as.numeric(other.df$conf.high)
+other <- other.df %>% 
+  mutate(model_other = factor(model_other, levels = c("eGFR (Reference >60)", "45-59 ", "30-44 ", "15-29 ", "<15 ", "No data", "Age (Reference 60-69)", "Under 60", "70-79", "80-89", "Over 90", "Sex (Reference Female)", "Male")))
+other
+```
+
+
+```{r make point and line range section}
+
+#create middle section
+p_mid <- other %>% 
+  ggplot(aes(y = fct_rev(model_other))) +
+  theme_classic() +
+  geom_point(aes(x=estimate), shape=15, size=3) +
+  geom_linerange(aes(xmin=conf.low, xmax=conf.high)) +
+  labs(x="Hazard Ratio", y = "") +
+  coord_cartesian(ylim = c(1,14), xlim = c(0, 6)) + 
+  geom_vline(xintercept = 1, linetype = "dashed") +  
+  theme(axis.line.y = element_blank(),
+        axis.ticks.y= element_blank(),
+        axis.text.y= element_blank(),
+        axis.title.y= element_blank())
+p_mid
+
+```
+
+```{r create estimate annotations plot}
+
+other_plot <- other %>% 
+  mutate(p.value = case_when(
+    p.value < .001 ~ "< 0.001", 
+    p.value < .01 ~ "< 0.01", 
+    TRUE ~ str_pad(as.character(round(p.value, 2)),width=4,pad="0",side="right"))) %>% #make p-value into stars 
+  #round estimates and CIs to 2dp
+  mutate(across(
+    c(estimate, conf.low, conf.high), 
+    ~ str_pad(
+      round(.x, 2), 
+      width = 4, 
+      pad = "0",
+      side = "right")), 
+    estimate_lab = case_when(
+      is.na(estimate) == FALSE ~ paste0(estimate, " (", conf.low, "-", conf.high,")"))) %>%# correctly sorted to here, estimate_lab is new though 
+  mutate(estimate_lab = as.character(estimate_lab)) %>% 
+  bind_rows(data.frame(model_other = "Category", estimate_lab = "      HR (CI)", conf.low = "", conf.high="",p.value="p-value"))
+  
+
+other_plot$model = as.character(other_plot$model)
+  other_plot <- other_plot %>%
+    mutate(model_other = factor(model_other, levels = c("Category", "eGFR (Reference >60)", "45-59 ", "30-44 ", "15-29 ", "<15 ", "No data", "Age (Reference 60-69)", "Under 60", "70-79", "80-89", "Over 90", "Sex (Reference Female)", "Male"))) 
+    
+
+p_left <- other_plot  %>%
+  ggplot(aes(y = fct_rev(model_other))) + 
+  geom_text(aes(x=0, label=model_other), hjust=0, fontface = "bold") +
+  geom_text(aes(x=1, label=estimate_lab), hjust=0, fontface = ifelse(other_plot$estimate_lab == "      HR (CI)", "bold", "plain")) +
+  theme_void() +
+  coord_cartesian(xlim = c(0,2.4))  
+p_left
+
+```
+
+
+```{r create p-value annotations}
+# right side of plot - pvalues
+p_right <-
+  other_plot %>%
+  ggplot(aes(y = fct_rev(model_other))) +
+  geom_text(aes(x=0, y= fct_rev(model_other), label=(p.value)), hjust =0, fontface = ifelse(other_plot$p.value == "p-value", "bold", "plain")) +
+  theme_void()
+
+p_right
+```
+
+```{r patchwork the three plots together}
+
+# layout design (top, left, bottom, right)
+
+layout <- c(
+  area(t = 0, l = 0, b = 60, r = 7.8),
+  area(t = 1, l = 8.8, b = 60, r = 18),
+  area(t = 0, l = 17, b = 60, r = 20)
+)
+
+# final plot arrangement
+p_left + p_mid + p_right + plot_layout(design = layout)
+
+
+## save final figure
+ggsave("forest-plot_1507.png", width=9, height=5) 
+
+```
+
+
+# Secondary aim forest plot - using multivariate model. 
+
+
+```{r sort out data}
+ 
+res2_model <- coxph(Surv(days_to_event, death_event) ~ CKD_category + DM_category + Hb_category + alb_category + hyp_category + Phy_Sex + age_category, data = categorised)
+#make the res object
+fit <- summary(res2_model)
+res2_coef <- fit$coefficients
+res2_ci <- confint(res2_model)
+res2_ci <- exp(res2_ci)
+res2_full <- cbind(res2_coef, res2_ci)
+res2_full2 <- res2_full %>% 
+  subset(select = c("exp(coef)", "Pr(>|z|)", "2.5 %", "97.5 %"))
+res2 <- res2_full2
+
+#change names of res2
+colnames(res2)[colnames(res2) == "exp(coef)"] <- "estimate"
+colnames(res2)[colnames(res2) == "Pr(>|z|)"] <- "p.value"
+colnames(res2)[colnames(res2) == "2.5 %"] <- "conf.low"
+colnames(res2)[colnames(res2) == "97.5 %"] <- "conf.high"
+
+#add row names as a column
+ckd <- c(" ", " ", " ", " ")
+age <- c(" ", " ", " ", " ")
+sex <- c(" ", " ", " ", " ")
+dm <- c(" ", " ", " ", " ")
+hb <- c(" ", " ", " ", " ")
+alb <- c(" ", " ", " ", " ")
+hyp <- c(" ", " ", " ", " ")
+
+other2 <- rbind(res2, ckd, age, sex, dm, hb, alb, hyp)
+
+model_other2 <- c("45-59", "30-44", "15-29", "<15", "No result eGFR", "No HbA1c", "Well controlled", "Poorly controlled","Low Hb", "No result Hb", "Low alb", "No result alb", "High SBP", "Low SBP", "No result SBP", "Male", "70-79", "80-89", "Over 90",  "Under 60", "eGFR (Reference >60)", "Age (Reference 60-69)", "Sex (Reference Female)", "DM (Reference No diagnosis)", "Haemoglobin (Reference Normal)", "Albumin (Reference Normal)", "SBP (Reference Normal)")
+model_other2
+other2 <- cbind(other2, model_other2)
+other2.df <- as.data.frame(other2)
+other2.df$estimate <- as.numeric(other2.df$estimate)
+other2.df$p.value <- as.numeric(other2.df$p.value)
+other2.df$conf.low <- as.numeric(other2.df$conf.low)
+other2.df$conf.high <- as.numeric(other2.df$conf.high)
+other2 <- other2.df %>% 
+  mutate(model_other2 = factor(model_other2, levels = c("eGFR (Reference >60)", "45-59", "30-44", "15-29", "<15", "No result eGFR", "DM (Reference No diagnosis)", "No HbA1c", "Well controlled", "Poorly controlled", "Haemoglobin (Reference Normal)", "Low Hb", "No result Hb", "Albumin (Reference Normal)", "Low alb", "No result alb", "SBP (Reference Normal)", "High SBP", "Low SBP", "No result SBP", "Age (Reference 60-69)", "Under 60", "70-79", "80-89", "Over 90", "Sex (Reference Female)", "Male")))
+other2
+```
+
+
+```{r make point and line range section}
+
+p_mid2 <- other2 %>% 
+  ggplot(aes(y = fct_rev(model_other2))) +
+  theme_classic() +
+  geom_point(aes(x=estimate), shape=15, size=3) +
+  geom_linerange(aes(xmin=conf.low, xmax=conf.high)) +
+  labs(x="Hazard Ratio", y = "") +
+  coord_cartesian(ylim = c(1,28), xlim = c(0, 5.25)) +
+  geom_vline(xintercept = 1, linetype = "dashed") +  
+  #annotate("text", x = 0.3, y = 12, label = "Lower mortality") +
+  #annotate("text", x = 1.7, y = 12, label = "Higher mortality") +
+  theme(axis.line.y = element_blank(),
+        axis.ticks.y= element_blank(),
+        axis.text.y= element_blank(),
+        axis.title.y= element_blank())
+p_mid2
+
+```
+
+```{r create estimate annotations plot}
+
+other2_plot <- other2 %>% 
+  #round estimates and CIs to 2dp
+   mutate(p.value = case_when(
+    p.value < .001 ~ "< 0.001", 
+    p.value < .01 ~ "< 0.01",
+    TRUE ~ str_pad(as.character(round(p.value, 2)),width=4,pad="0",side="right"))) %>% #make p-value into stars 
+  #round estimates and CIs to 2dp
+  mutate(across(
+    c(estimate, conf.low, conf.high), 
+    ~ str_pad(
+      round(.x, 2), 
+      width = 4, 
+      pad = "0",
+      side = "right")), 
+    estimate_lab = case_when(
+      is.na(estimate) == FALSE ~ paste0(estimate, " (", conf.low, "-", conf.high,")"))) %>%
+  bind_rows(data.frame(model_other2 = "Category", estimate_lab = "      HR (CI)", conf.low = "", conf.high="",p.value="p-value"))
+other2_plot  
+
+other2_plot$model = as.character(other2_plot$model)
+  other2_plot <- other2_plot %>%
+    mutate(model_other2 = factor(model_other2, levels = c("eGFR (Reference >60)", "45-59", "30-44", "15-29", "<15", "No result eGFR", "DM (Reference No diagnosis)", "No HbA1c", "Well controlled", "Poorly controlled", "Haemoglobin (Reference Normal)", "Low Hb", "No result Hb", "Albumin (Reference Normal)", "Low alb", "No result alb", "SBP (Reference Normal)", "High SBP", "Low SBP", "No result SBP", "Age (Reference 60-69)", "Under 60", "70-79", "80-89", "Over 90", "Sex (Reference Female)", "Male")))
+
+other2_plot
+p_left2 <- other2_plot  %>%
+  ggplot(aes(y = fct_rev(model_other2))) + 
+  geom_text(aes(x=0, label=model_other2), hjust=0, fontface = "bold") +
+  geom_text(aes(x=1, label=estimate_lab), hjust=0, fontface = ifelse(other2_plot$estimate_lab == "      HR (CI)", "bold", "plain")) +
+  theme_void() +
+  coord_cartesian(xlim = c(0, 2.3))  
+p_left2
+
+```
+
+```{r create p-value annotations}
+# right side of plot - pvalues
+p_right2 <-
+  other2_plot %>%
+  ggplot(aes(y = fct_rev(model_other2))) +
+  geom_text(aes(x=0, y= fct_rev(model_other2), label=(p.value)), hjust =0, fontface = ifelse(other2_plot$p.value == "p-value", "bold", "plain")) +
+  theme_void()
+
+p_right2
+```
+
+```{r patchwork the three plots together}
+
+# layout design (top, left, bottom, right)
+layout <- c(
+  area(t = 0, l = 0, b = 30, r = 5),
+  area(t = 1, l = 5.5, b = 30, r = 9.3),
+  area(t = 0, l = 9, b = 30, r = 10)
+)
+
+# final plot arrangement
+p_left2 + p_mid2 + p_right2 + plot_layout(design = layout)
+
+## save final figure
+ggsave("forest-plot-secondary_1207.png", width = 9, height = 9)
+
+```
