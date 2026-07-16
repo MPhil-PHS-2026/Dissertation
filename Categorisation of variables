@@ -1,0 +1,409 @@
+---
+title: "Categorisation of predictors"
+output: html_document
+date: "2026-03-28"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+setwd("D:/FirstnameLastname")
+```
+
+```{r}
+library(readxl)
+setwd("D:/FirstnameLastname/202605")
+mortality <- read_excel("static_baseline_mortality_new.xlsx") 
+mortality_csv <- read.csv("static_baseline_mortality.csv")
+library(tidyverse) #lubridate is part of tidyverse 
+```
+
+
+```{r just the right ages mortality dataset}
+mortality_full <- mortality
+
+mortality <- mortality %>% 
+  subset(select = c("patid", "date", "hfd_date", "Phy_Sex", "yob", "regstartdate", "Phy_Age",
+                    "Phy_Hei__last", "Phy_Wei__last", "Phy_BMI__last",
+                    "Phy_Sys__last", 
+                    "Blo_Hb__last", "Blo_Alb__last", "Blo_HBA1C__last",
+                    "Pat_Hyp__ever", "Pat_Hyp__in_last_year", "Pat_Hyp__age_first", "Pat_Hyp__count", 
+                    "Pat_DM__ever", "Pat_DM__in_last_year", "Pat_DM__age_first", "Pat_DM__count",
+                    "pre_all_hosp_total_duration", "pre_all_hosp_n", "post_all_hosp_total_duration", 
+                    "post_all_hosp_n", "pre_emmergency_hosp_total_duration", "pre_emmergency_hosp_n",
+                    "post_emmergency_hosp_total_duration", "post_emmergency_hosp_n", 
+                    "cprd_ddate", "regenddate",
+                    "days_to_event", "death_event"))
+
+
+#change everything to dates
+mortality$hfd_date <- as.Date(mortality$hfd_date, format = c("%m/%d/%Y"))
+mortality$date <- as.Date(mortality$date, format = c("%m/%d/%Y"))
+mortality$cprd_ddate <- as.Date(mortality$cprd_ddate, format = c("%m/%d/%Y"))
+mortality$regenddate <- as.Date(mortality$regenddate, format = c("%m/%d/%Y"))
+mortality$regstartdate <- as.Date(mortality$regstartdate, format = c("%m/%d/%Y"))
+
+#add age column
+mortality$age_in_2017 <- as.character(2017 - as.numeric(mortality$yob) - 1)
+
+
+
+mortality %>% 
+  filter(is.na(regenddate) == TRUE) %>% 
+  filter(days_to_event != 0) 
+```
+
+```{r catchment period}
+
+mortality %>% 
+  filter(regstartdate > as.Date("2017-01-01")) %>% 
+  nrow() #4496 people registered at the GP surgery after 2017-01-01 
+mortality %>% 
+  filter(regstartdate > as.Date("2015-07-01")) %>% 
+  nrow() #7488 
+
+mortality <- mortality %>% 
+  filter(regstartdate <= as.Date("2015-07-01"))
+
+table(is.na(mortality$regstartdate))
+```
+
+``` {r categorise HbA1c/DM}
+
+summary(mortality$Blo_HBA1C__last)
+#exclude outliers - HbA1c between 1 and 150, no need to exclude on diagnosis
+mortality_categorisation <- mortality %>% 
+ mutate(Blo_HBA1C__last = dplyr::if_else((Blo_HBA1C__last > 1 & Blo_HBA1C__last < 150), 
+                 Blo_HBA1C__last, 
+                 NA))
+#categorise data - controlled, uncontrolled, no diagnosis
+
+mortality_categorisation <- mortality_categorisation %>% 
+  mutate(DM_category = case_when(Pat_DM__ever == "Y" & Blo_HBA1C__last < 58 ~ "DM_controlled",
+                                 Pat_DM__ever == "Y" & Blo_HBA1C__last >= 58 ~ "DM_uncontrolled",
+                                 Pat_DM__ever == "Y" & is.na(Blo_HBA1C__last == TRUE) ~ "DM no data",
+                                 Pat_DM__ever == "N" ~ "No_diagnosis")) %>% 
+  mutate(DM_category_2 = case_when(Pat_DM__ever == "Y" & Blo_HBA1C__last < 58 ~ "DM_controlled",
+                                 Pat_DM__ever == "Y" & Blo_HBA1C__last >= 58 & Blo_HBA1C__last < 120 ~ "DM_uncontrolled",
+                                 Pat_DM__ever == "Y" & Blo_HBA1C__last >= 120 ~ "DM_very_uncontrolled",
+                                 Pat_DM__ever == "Y" & is.na(Blo_HBA1C__last == TRUE) ~ "DM no data",
+                                 Pat_DM__ever == "N" & Blo_HBA1C__last < 58 ~ "No_diagnosis",
+                                 Pat_DM__ever == "N" & Blo_HBA1C__last >= 58 ~ "No_diagnosis_raised",
+                                 Pat_DM__ever == "N" & is.na(Blo_HBA1C__last) == TRUE ~ "No_diagnosis no data"))
+table(mortality_categorisation$DM_category)         
+```
+
+
+```{r categorise Hb}
+#exclude outliers - No missing data on Sex - everyone is classed as Male and Female, haemoglobin between 1 and 40
+mortality_categorisation <- mortality_categorisation %>% 
+  mutate(Blo_Hb__last = dplyr::if_else((Blo_Hb__last > 1 & Blo_Hb__last < 40), 
+                 Blo_Hb__last, 
+                 NA))
+
+#categorise data - normal, low, no data
+mortality_categorisation <- mortality_categorisation %>% 
+  mutate(Hb_category = case_when((Phy_Sex == "Female" & Blo_Hb__last >= 12) | (Phy_Sex == "Male" & Blo_Hb__last >= 13) ~ "Normal",
+                                 (Phy_Sex == "Female" & Blo_Hb__last < 12) | (Phy_Sex == "Male" & Blo_Hb__last < 13) ~ "Low",
+                                 is.na(Blo_Hb__last) == TRUE ~ "No data"))
+table(mortality_categorisation$Hb_category)
+```
+
+```{r categorise Alb}
+#exclude outliers - albumin must be between 5 and 60
+mortality_categorisation <- mortality_categorisation %>% 
+mutate(Blo_Alb__last = dplyr::if_else((Blo_Alb__last > 5 & Blo_Alb__last < 60), 
+                 Blo_Alb__last, 
+                 NA))  
+#categorise data - normal, low, and no data
+mortality_categorisation <- mortality_categorisation %>% 
+  mutate(alb_category = case_when(Blo_Alb__last > 35 ~ "Normal",
+                                  Blo_Alb__last <= 35 ~ "Low",
+                                  is.na(Blo_Alb__last) == TRUE ~ "No data"))
+table(mortality_categorisation$alb_category) 
+
+```
+
+```{r categorise hyp}
+#exclude outliers - sbp needs to be between 20 and 300. 
+mortality_categorisation <- mortality_categorisation %>% 
+  mutate(Phy_Sys__last = dplyr::if_else((Phy_Sys__last > 20 & Phy_Sys__last < 300), 
+                 Phy_Sys__last, 
+                 NA))
+
+#categorise data - high, normal, no data
+mortality_categorisation <- mortality_categorisation %>% 
+  mutate(hyp_category_last = case_when(Pat_Hyp__in_last_year == "Y" | Phy_Sys__last > 140 ~ "High",
+                                  Pat_Hyp__in_last_year == "N" & Phy_Sys__last <= 140 ~ "Normal",
+                                  Pat_Hyp__in_last_year == "N" & is.na(Phy_Sys__last) == TRUE ~ "No data")) %>% 
+  mutate(hyp_category_ever = case_when(Pat_Hyp__ever == "Y" | Phy_Sys__last > 140 ~ "High",
+                                  Pat_Hyp__ever == "N" & Phy_Sys__last <= 140 ~ "Normal",
+                                  Pat_Hyp__ever == "N" & is.na(Phy_Sys__last) == TRUE ~ "No data")) %>% 
+  mutate(hyp_category_original = case_when(Phy_Sys__last > 140 ~ "High",
+                                  Phy_Sys__last <= 140 ~ "Normal",
+                                  is.na(Phy_Sys__last) == TRUE ~ "No data")) %>% #
+  mutate(hyp_category = case_when(Phy_Sys__last > 140 ~ "High",
+                                  Phy_Sys__last <= 140 & Phy_Sys__last >= 110 ~ "Normal",
+                                  Phy_Sys__last < 110 ~ "Low",
+                                  is.na(Phy_Sys__last) == TRUE ~ "No data")) 
+
+```
+
+```{r categorise BMI}
+##Height and weight converted to BMI
+#process height into metres
+
+mortality_categorisation <- mortality_categorisation %>% 
+  mutate(Phy_Hei__last = dplyr::if_else(Phy_Hei__last > 100 & Phy_Hei__last < 210, 
+                                               Phy_Hei__last, 
+                                               NA)) %>% 
+  mutate(Phy_Hei__last = Phy_Hei__last / 100) %>% 
+  mutate(Phy_Wei__last = dplyr::if_else(Phy_Wei__last > 25 & Phy_Wei__last < 500,
+                                               Phy_Wei__last,
+                                               NA))
+
+#calculate extra BMI variables
+mortality_categorisation <- mortality_categorisation %>% 
+  mutate(Phy_BMI__last = case_when(is.na(Phy_BMI__last) == FALSE ~ Phy_BMI__last,
+                                   is.na(Phy_BMI__last) == TRUE & is.na(Phy_Hei__last) == FALSE &
+                                     is.na(Phy_Wei__last) == FALSE ~ 
+                                     Phy_Wei__last/ (Phy_Hei__last ^ 2),
+                                   is.na(Phy_BMI__last) == TRUE & (is.na(Phy_Hei__last) == TRUE | 
+                                                                     is.na(Phy_Wei__last) == TRUE) ~ NA))
+
+## Categorisation
+#exclude outliers
+mortality_categorisation <- mortality_categorisation %>% 
+  mutate(Phy_BMI__last = dplyr::if_else((Phy_BMI__last > 10 & Phy_BMI__last < 80), 
+                 Phy_BMI__last, 
+                 NA))
+
+#categorise data - underweight, normal weight, overweight, obese, no data
+mortality_categorisation <- mortality_categorisation %>% 
+  mutate(BMI_category_original = case_when(Phy_BMI__last < 18.5 ~ "Underweight",
+                                  Phy_BMI__last < 25 & Phy_BMI__last >= 18.5 ~ "Normal weight",
+                                  Phy_BMI__last < 30 & Phy_BMI__last >= 25 ~ "Overweight",
+                                  Phy_BMI__last >= 30 ~ "Obese",
+                                  is.na(Phy_BMI__last) == TRUE ~ "No data")) %>% 
+  mutate(BMI_category = case_when(Phy_BMI__last < 18.5 ~ "Underweight",
+                                  Phy_BMI__last < 25 & Phy_BMI__last >= 18.5 ~ "Normal weight",
+                                  Phy_BMI__last < 30 & Phy_BMI__last >= 25 ~ "Overweight",
+                                  Phy_BMI__last < 35 & Phy_BMI__last >= 30 ~ "Obesity 1",
+                                  Phy_BMI__last < 40 & Phy_BMI__last >= 35 ~ "Obesity 2", 
+                                  Phy_BMI__last >= 40 ~ "Obesity 3",
+                                  is.na(Phy_BMI__last) == TRUE ~ "No data"))
+table(mortality_categorisation$BMI_category)
+  
+
+```
+
+```{r categorise age}
+mortality_categorisation <- mortality_categorisation %>% 
+  mutate(age_in_2017 = as.numeric(age_in_2017)) %>% 
+  mutate(age_in_2017 = dplyr::if_else((age_in_2017 > 17 & age_in_2017 < 110), 
+                 age_in_2017, 
+                 NA))
+
+
+table(is.na(mortality_categorisation$age_in_2017))
+#categorise data
+class(mortality_categorisation$age_in_2017)
+
+
+head(mortality$age_in_2017)
+mortality_categorisation <- mortality_categorisation %>% 
+  mutate(age_category = case_when(age_in_2017 <= 59 ~ "Under 60",
+                      age_in_2017 >= 60 & age_in_2017 < 70 ~ "60-69",
+                      age_in_2017 >= 70 & age_in_2017 < 80 ~ "70-79", 
+                      age_in_2017 >= 80 & age_in_2017 < 90 ~ "80-89", 
+                      age_in_2017 >= 90 ~ "Over 90", 
+                      is.na(age_in_2017) == TRUE ~ "No data"))
+
+mortality_categorisation <- mortality_categorisation %>% 
+  mutate(age_category_old = case_when(age_in_2017 <= 44 ~ "Under 45",
+                      age_in_2017 >= 45 & age_in_2017 < 60 ~ "45-59",
+                      age_in_2017 >= 60 & age_in_2017 < 70 ~ "60-69",
+                      age_in_2017 >= 70 & age_in_2017 < 80 ~ "70-79", 
+                      age_in_2017 >= 80 & age_in_2017 < 90 ~ "80-89", 
+                      age_in_2017 >= 90 ~ "Over 90", 
+                      is.na(age_in_2017) == TRUE ~ "No data"))
+
+
+
+```
+
+ 
+```{r merge with eGFR}
+#find my RData file and download it
+#merge datasets
+#Save categorised dataset
+setwd("D:/FirstnameLastname")
+
+load("eGFR_small_long.RData")
+
+eGFR_small_long <- eGFR_small_long %>% 
+  subset(select = c(patid, CKD_category, eGFR_best, eGFR_recent, eGFR_second_recent, missing_both_binary, missing_second_binary))
+mortality_categorisation$patid <- as.character(mortality_categorisation$patid)
+head(mortality_categorisation)
+head(eGFR_small_long)
+categorised <- left_join(mortality_categorisation, eGFR_small_long, by = ("patid"))
+
+```
+``` {r extra eGFR categorisation}
+
+categorised <- categorised %>% 
+  mutate(CKD_category_short = case_when(eGFR_best >= 60 ~ "Normal",
+                                  (eGFR_best >= 30 & eGFR_best < 60 ~ "3"),
+                                  (eGFR_best >= 15 & eGFR_best < 30 ~ "4"),
+                                  eGFR_best < 15 ~ "5",
+                                  missing_both_binary == 1 ~ "No data")) #eGFR category combining the 3a and 3b categories
+
+
+```
+
+
+```{r CCA datasets}
+categorised_CCA_sensitivity <- categorised %>% 
+  filter(is.na(Blo_Alb__last) == FALSE) %>% 
+  filter(is.na(eGFR_best) == FALSE) %>% 
+  filter(is.na(Blo_Hb__last) == FALSE) %>% 
+  filter(is.na(Phy_Sys__last) == FALSE)
+
+categorised %>% 
+  filter(is.na(eGFR_best) == TRUE) #3907
+categorised_CCA_cre_sensitivity <- categorised %>% 
+  filter(is.na(eGFR_best) == FALSE)
+
+categorised_CCA_cre_sensitivity %>% 
+  filter(is.na(eGFR_best) == TRUE)
+```
+
+```{r create factors normal} 
+
+categorised$CKD_category = as.factor(categorised$CKD_category)
+categorised$CKD_category_short = as.factor(categorised$CKD_category_short)
+categorised$DM_category = as.factor(categorised$DM_category)
+categorised$Hb_category = as.factor(categorised$Hb_category)
+categorised$alb_category = as.factor(categorised$alb_category)
+categorised$hyp_category = as.factor(categorised$hyp_category)
+categorised$BMI_category = as.factor(categorised$BMI_category)
+categorised$age_category = as.factor(categorised$age_category)
+
+
+categorised$CKD_category <- relevel(categorised$CKD_category, ref = "Normal")
+categorised$DM_category <- relevel(categorised$DM_category, ref = "No_diagnosis")
+categorised$Hb_category <- relevel(categorised$Hb_category, ref = "Normal")
+categorised$alb_category <- relevel(categorised$alb_category, ref = "Normal")
+categorised$hyp_category <- relevel(categorised$hyp_category, ref = "Normal")
+categorised$BMI_category <- relevel(categorised$BMI_category, ref = "Normal weight")
+categorised$age_category <- relevel(categorised$age_category, ref = "60-69")
+
+categorised$Phy_Sex <- factor(categorised$Phy_Sex, levels = c("Female", "Male"))
+
+```
+
+```{r redo with CCA datasets}
+#CCA full as factor
+
+categorised_CCA_sensitivity$CKD_category = as.factor(categorised_CCA_sensitivity$CKD_category)
+categorised_CCA_sensitivity$CKD_category_short = as.factor(categorised_CCA_sensitivity$CKD_category_short)
+categorised_CCA_sensitivity$DM_category = as.factor(categorised_CCA_sensitivity$DM_category)
+categorised_CCA_sensitivity$Hb_category = as.factor(categorised_CCA_sensitivity$Hb_category)
+categorised_CCA_sensitivity$alb_category = as.factor(categorised_CCA_sensitivity$alb_category)
+categorised_CCA_sensitivity$hyp_category = as.factor(categorised_CCA_sensitivity$hyp_category)
+categorised_CCA_sensitivity$BMI_category = as.factor(categorised_CCA_sensitivity$BMI_category)
+categorised_CCA_sensitivity$age_category = as.factor(categorised_CCA_sensitivity$age_category)
+
+
+#CCA full releveling
+categorised_CCA_sensitivity$CKD_category <- relevel(categorised_CCA_sensitivity$CKD_category, ref = "Normal")
+categorised_CCA_sensitivity$CKD_category_short <- relevel(categorised_CCA_sensitivity$CKD_category_short, ref = "Normal")
+categorised_CCA_sensitivity$DM_category <- relevel(categorised_CCA_sensitivity$DM_category, ref = "No_diagnosis")
+categorised_CCA_sensitivity$Hb_category <- relevel(categorised_CCA_sensitivity$Hb_category, ref = "Normal")
+categorised_CCA_sensitivity$alb_category <- relevel(categorised_CCA_sensitivity$alb_category, ref = "Normal")
+categorised_CCA_sensitivity$hyp_category <- relevel(categorised_CCA_sensitivity$hyp_category, ref = "Normal")
+categorised_CCA_sensitivity$BMI_category <- relevel(categorised_CCA_sensitivity$BMI_category, ref = "Normal weight")
+categorised_CCA_sensitivity$age_category <- relevel(categorised_CCA_sensitivity$age_category, ref = "60-69")
+
+categorised_CCA_sensitivity$Phy_Sex <- factor(categorised_CCA_sensitivity$Phy_Sex, levels = c("Female", "Male"))
+
+
+#CCA eGFR version as factor
+categorised_CCA_cre_sensitivity$CKD_category = as.factor(categorised_CCA_cre_sensitivity$CKD_category)
+categorised_CCA_cre_sensitivity$CKD_category_short = as.factor(categorised_CCA_cre_sensitivity$CKD_category_short)
+categorised_CCA_cre_sensitivity$DM_category = as.factor(categorised_CCA_cre_sensitivity$DM_category)
+categorised_CCA_cre_sensitivity$Hb_category = as.factor(categorised_CCA_cre_sensitivity$Hb_category)
+categorised_CCA_cre_sensitivity$alb_category = as.factor(categorised_CCA_cre_sensitivity$alb_category)
+categorised_CCA_cre_sensitivity$hyp_category = as.factor(categorised_CCA_cre_sensitivity$hyp_category)
+categorised_CCA_cre_sensitivity$BMI_category = as.factor(categorised_CCA_cre_sensitivity$BMI_category)
+categorised_CCA_cre_sensitivity$age_category = as.factor(categorised_CCA_cre_sensitivity$age_category)
+categorised_CCA_cre_sensitivity$Phy_Sex <- factor(categorised_CCA_cre_sensitivity$Phy_Sex, levels = c("Female", "Male"))
+
+#CCA eGFR version full
+categorised_CCA_cre_sensitivity$CKD_category <- relevel(categorised_CCA_cre_sensitivity$CKD_category, ref = "Normal")
+categorised_CCA_cre_sensitivity$CKD_category_short <- relevel(categorised_CCA_cre_sensitivity$CKD_category_short, ref = "Normal")
+categorised_CCA_cre_sensitivity$DM_category <- relevel(categorised_CCA_cre_sensitivity$DM_category, ref = "No_diagnosis")
+categorised_CCA_cre_sensitivity$Hb_category <- relevel(categorised_CCA_cre_sensitivity$Hb_category, ref = "Normal")
+categorised_CCA_cre_sensitivity$alb_category <- relevel(categorised_CCA_cre_sensitivity$alb_category, ref = "Normal")
+categorised_CCA_cre_sensitivity$hyp_category <- relevel(categorised_CCA_cre_sensitivity$hyp_category, ref = "Normal")
+categorised_CCA_cre_sensitivity$BMI_category <- relevel(categorised_CCA_cre_sensitivity$BMI_category, ref = "Normal weight")
+categorised_CCA_cre_sensitivity$age_category <- relevel(categorised_CCA_cre_sensitivity$age_category, ref = "60-69")
+
+```
+
+```{r save data}
+save(categorised, file = "categorised.RData") #categorised_long is the old one possibl7
+categorised_CCA_sensitivity <- categorised_CCA_sensitivity
+save(categorised_CCA_sensitivity, file = "categorised_CCA_sensitivity.RData")
+categorised_CCA_cre_sensitivity <- categorised_CCA_cre_sensitivity
+save(categorised_CCA_cre_sensitivity, file = "categorised_CCA_cre_sensitivity.RData")
+categorised_CCA_cre_sensitivity %>% 
+  filter(is.na(eGFR_best) == TRUE)
+```
+
+```{r 2020 dataset, all using the long data}
+categorised_2020 <- categorised %>% 
+  mutate(death_event_2020 = case_when(days_to_event < 1155 & death_event == 1 ~ 1,
+                                      days_to_event < 1155 & death_event == 0 ~ 0,
+                                      days_to_event >= 1155 ~ 0)) %>% 
+  mutate(days_to_event_2020 = case_when(days_to_event < 1155 ~ days_to_event, 
+                                        days_to_event >= 1155 ~ 1155)) #using 1-3-2020 as the cutoff
+
+save(categorised_2020, file = "categorised_2020.RData")
+
+```
+
+
+```{r redo with creatinine sensitivity analysis dataset}
+#create categorised_cre_sensitivity dataset
+load("eGFR_small_sensitivity_long.RData")
+categorised_cre_sensitivity_early <- categorised %>% 
+  subset(select = c(patid, date, regenddate, days_to_event, death_event,
+                   age_category,age_in_2017,
+                    DM_category, Pat_DM__ever, Blo_HBA1C__last, 
+                    Hb_category, Blo_Hb__last, 
+                    alb_category, Blo_Alb__last,
+                    hyp_category, Pat_Hyp__in_last_year, Phy_Sys__last,
+                    BMI_category, Phy_BMI__last,
+                    Phy_Sex))
+categorised_cre_sensitivity <- left_join(categorised_cre_sensitivity_early, eGFR_small_sensitivity_long, by = ("patid"))
+eGFR_small_sensitivity_long <- eGFR_small_sensitivity_long %>% 
+  subset(select = c(patid, CKD_category_sensitivity, eGFR_best_sensitivity, eGFR_recent, eGFR_second_recent, missing_both_binary, missing_second_binary)) %>% 
+  rename(eGFR_best = eGFR_best_sensitivity,
+         CKD_category = CKD_category_sensitivity)
+categorised_cre_sensitivity  <- left_join(categorised_cre_sensitivity_early, eGFR_small_sensitivity_long, by = ("patid"))
+
+
+#make eGFR category a factor
+categorised_cre_sensitivity$CKD_category = as.factor(categorised_cre_sensitivity$CKD_category)
+categorised_cre_sensitivity$CKD_category <- relevel(categorised_cre_sensitivity$CKD_category, ref = "Normal")
+
+#make Sex category a factor 
+categorised_cre_sensitivity$Phy_Sex = factor(categorised_cre_sensitivity$Phy_Sex, levels = c("Female", "Male"))
+
+
+#save
+save(categorised_cre_sensitivity, file = "categorised_cre_sensitivity.RData")
+
+
+```
+
