@@ -1,0 +1,1046 @@
+---
+title: "HR tables"
+output: html_document
+date: "2026-06-08"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+setwd("D:/HannahNicoll")
+```
+
+```{r load packages}
+
+library(survival)
+library(tidyverse)
+library(collapse)
+
+```
+
+```{r load data}
+load("categorised.RData")
+load("categorised_CCA_sensitivity.RData")
+load("categorised_2020.RData")
+load("categorised_cre_sensitivity.RData")
+load("categorised_CCA_cre_sensitivity.RData")
+```
+
+## Whole dataset, missing indicator
+ 
+```{r eGFR univariate}
+#make table of relevant coefficients from univariate survival model
+eGFRuni_summary <- summary(coxph(Surv(days_to_event, death_event) ~ CKD_category, data = categorised))
+eGFRuni_coef <- eGFRuni_summary$coefficients
+eGFRuni_ci <- exp(confint(coxph(Surv(days_to_event, death_event) ~ CKD_category, data = categorised)))
+eGFRuni <- cbind(eGFRuni_coef, eGFRuni_ci)
+eGFRuni <- eGFRuni %>% 
+  subset(select = c("exp(coef)", "Pr(>|z|)", "2.5 %", "97.5 %"))
+colnames(eGFRuni)[colnames(eGFRuni) == "exp(coef)"] <- "estimate"
+colnames(eGFRuni)[colnames(eGFRuni) == "Pr(>|z|)"] <- "p.value"
+colnames(eGFRuni)[colnames(eGFRuni) == "2.5 %"] <- "conf.low"
+colnames(eGFRuni)[colnames(eGFRuni) == "97.5 %"] <- "conf.high"
+eGFRuni_table <- as.data.frame(eGFRuni)
+
+#edit table
+eGFRuni_table <- eGFRuni_table %>% 
+  fmutate(across(c("estimate", "conf.low", "conf.high"), round, 2)) %>%   
+  mutate(p.value = case_when(
+    p.value < .001 ~ "**", 
+    p.value < .01 ~ "*",
+    TRUE ~ str_pad(as.character(round(p.value, 2)),width=4,pad="0",side="right"))) %>% 
+  mutate("HR (95% CI)" = paste0(estimate, " (", conf.low, "-", conf.high,")", p.value))
+
+eGFRuni_table
+```
+
+```{r eGFR + age + sex}
+#make table of small multivariate survival
+eGFRcox_summary <- summary(coxph(Surv(days_to_event, death_event) ~ CKD_category + age_category + Phy_Sex, data = categorised))
+eGFRcox_coef <- eGFRcox_summary$coefficients
+eGFRcox_ci <- exp(confint(coxph(Surv(days_to_event, death_event) ~ CKD_category + age_category + Phy_Sex, data = categorised)))
+eGFRcox <- cbind(eGFRcox_coef, eGFRcox_ci)
+eGFRcox <- eGFRcox %>% 
+  subset(select = c("exp(coef)", "Pr(>|z|)", "2.5 %", "97.5 %"))
+colnames(eGFRcox)[colnames(eGFRcox) == "exp(coef)"] <- "estimate"
+colnames(eGFRcox)[colnames(eGFRcox) == "Pr(>|z|)"] <- "p.value"
+colnames(eGFRcox)[colnames(eGFRcox) == "2.5 %"] <- "conf.low"
+colnames(eGFRcox)[colnames(eGFRcox) == "97.5 %"] <- "conf.high"
+
+#edit table
+eGFRcox_table <- as.data.frame(eGFRcox)
+eGFRcox_table <- eGFRcox_table %>% 
+  fmutate(across(c("estimate", "conf.low", "conf.high"), round, 2)) %>%    
+  mutate(p.value = case_when(
+    p.value < .001 ~ "**", 
+    p.value < .01 ~ "*", 
+    TRUE ~ str_pad(as.character(round(p.value, 2)),width=4,pad="0",side="right"))) %>% 
+  mutate("HR (95% CI)" = paste0(estimate, " (", conf.low, "-", conf.high,")", p.value))
+
+```
+
+```{r DM + age + sex}
+#make multivariate table
+DMcox_summary <- summary(coxph(Surv(days_to_event, death_event) ~ DM_category + age_category + Phy_Sex, data = categorised))
+DMcox_coef <- DMcox_summary$coefficients
+DMcox_ci <- exp(confint(coxph(Surv(days_to_event, death_event) ~ DM_category + age_category + Phy_Sex, data = categorised)))
+DMcox <- cbind(DMcox_coef, DMcox_ci)
+DMcox <- DMcox %>% 
+  subset(select = c("exp(coef)", "Pr(>|z|)", "2.5 %", "97.5 %"))
+
+colnames(DMcox)[colnames(DMcox) == "exp(coef)"] <- "estimate"
+colnames(DMcox)[colnames(DMcox) == "Pr(>|z|)"] <- "p.value"
+colnames(DMcox)[colnames(DMcox) == "2.5 %"] <- "conf.low"
+colnames(DMcox)[colnames(DMcox) == "97.5 %"] <- "conf.high"
+
+DMcox_table <- as.data.frame(DMcox)
+DMcox_table <- DMcox_table %>% 
+  fmutate(across(c("estimate", "conf.low", "conf.high"), round, 2)) %>% 
+  mutate(p.value = case_when(
+    p.value < .001 ~ "**", 
+    p.value < .01 ~ "*", 
+    TRUE ~ str_pad(as.character(round(p.value, 2)),width=4,pad="0",side="right"))) %>% 
+  mutate("HR (95% CI)" = paste0(estimate, " (", conf.low, "-", conf.high,")", p.value))
+
+
+```
+
+```{r DM univariate}
+#make univariate table
+DMuni_summary <- summary(coxph(Surv(days_to_event, death_event) ~ DM_category, data = categorised))
+DMuni_coef <- DMuni_summary$coefficients
+DMuni_ci <- exp(confint(coxph(Surv(days_to_event, death_event) ~ DM_category, data = categorised)))
+DMuni <- cbind(DMuni_coef, DMuni_ci)
+DMuni <- DMuni %>% 
+  subset(select = c("exp(coef)", "Pr(>|z|)", "2.5 %", "97.5 %"))
+
+colnames(DMuni)[colnames(DMuni) == "exp(coef)"] <- "estimate"
+colnames(DMuni)[colnames(DMuni) == "Pr(>|z|)"] <- "p.value"
+colnames(DMuni)[colnames(DMuni) == "2.5 %"] <- "conf.low"
+colnames(DMuni)[colnames(DMuni) == "97.5 %"] <- "conf.high"
+
+DMuni_table <- as.data.frame(DMuni)
+DMuni_table <- DMuni_table %>% 
+  fmutate(across(c("estimate", "conf.low", "conf.high"), round, 2)) %>%     
+  mutate(p.value = case_when(
+    p.value < .001 ~ "**", 
+    p.value < .01 ~ "*", 
+    TRUE ~ str_pad(as.character(round(p.value, 2)),width=4,pad="0",side="right"))) %>% 
+  mutate("HR (95% CI)" = paste0(estimate, " (", conf.low, "-", conf.high,")", p.value))
+
+
+```
+
+```{r hb univariate}
+#make univariate haemoglobin table
+Hbuni_summary <- summary(coxph(Surv(days_to_event, death_event) ~ Hb_category, data = categorised))
+Hbuni_coef <- Hbuni_summary$coefficients
+Hbuni_ci <- exp(confint(coxph(Surv(days_to_event, death_event) ~ Hb_category, data = categorised)))
+Hbuni <- cbind(Hbuni_coef, Hbuni_ci)
+Hbuni <- Hbuni %>% 
+  subset(select = c("exp(coef)", "Pr(>|z|)", "2.5 %", "97.5 %"))
+
+colnames(Hbuni)[colnames(Hbuni) == "exp(coef)"] <- "estimate"
+colnames(Hbuni)[colnames(Hbuni) == "Pr(>|z|)"] <- "p.value"
+colnames(Hbuni)[colnames(Hbuni) == "2.5 %"] <- "conf.low"
+colnames(Hbuni)[colnames(Hbuni) == "97.5 %"] <- "conf.high"
+
+Hbuni_table <- as.data.frame(Hbuni)
+Hbuni_table <- Hbuni_table %>% 
+  fmutate(across(c("estimate", "conf.low", "conf.high"), round, 2)) %>%     
+  mutate(p.value = case_when(
+    p.value < .001 ~ "**", 
+    p.value < .01 ~ "*", 
+    TRUE ~ str_pad(as.character(round(p.value, 2)),width=4,pad="0",side="right"))) %>% 
+  mutate("HR (95% CI)" = paste0(estimate, " (", conf.low, "-", conf.high,")", p.value))
+
+```
+
+
+```{r hb + age + sex}
+#make multivariate haemoglobin table
+Hbcox_summary <- summary(coxph(Surv(days_to_event, death_event) ~ Hb_category + age_category + Phy_Sex, data = categorised))
+Hbcox_coef <- Hbcox_summary$coefficients
+Hbcox_ci <- exp(confint(coxph(Surv(days_to_event, death_event) ~ Hb_category + age_category + Phy_Sex, data = categorised)))
+Hbcox <- cbind(Hbcox_coef, Hbcox_ci)
+Hbcox <- Hbcox %>% 
+  subset(select = c("exp(coef)", "Pr(>|z|)", "2.5 %", "97.5 %"))
+
+colnames(Hbcox)[colnames(Hbcox) == "exp(coef)"] <- "estimate"
+colnames(Hbcox)[colnames(Hbcox) == "Pr(>|z|)"] <- "p.value"
+colnames(Hbcox)[colnames(Hbcox) == "2.5 %"] <- "conf.low"
+colnames(Hbcox)[colnames(Hbcox) == "97.5 %"] <- "conf.high"
+
+Hbcox_table <- as.data.frame(Hbcox)
+Hbcox_table <- Hbcox_table %>% 
+  fmutate(across(c("estimate", "conf.low", "conf.high"), round, 2)) %>%     
+  mutate(p.value = case_when(
+    p.value < .001 ~ "**", 
+    p.value < .01 ~ "*", 
+    TRUE ~ str_pad(as.character(round(p.value, 2)),width=4,pad="0",side="right"))) %>% 
+  mutate("HR (95% CI)" = paste0(estimate, " (", conf.low, "-", conf.high,")", p.value))
+
+```
+```{r alb}
+#make univariate albumin table
+albuni_summary <- summary(coxph(Surv(days_to_event, death_event) ~ alb_category, data = categorised))
+albuni_coef <- albuni_summary$coefficients
+albuni_ci <- exp(confint(coxph(Surv(days_to_event, death_event) ~ alb_category, data = categorised)))
+albuni <- cbind(albuni_coef, albuni_ci)
+albuni <- albuni %>% 
+  subset(select = c("exp(coef)", "Pr(>|z|)", "2.5 %", "97.5 %"))
+
+colnames(albuni)[colnames(albuni) == "exp(coef)"] <- "estimate"
+colnames(albuni)[colnames(albuni) == "Pr(>|z|)"] <- "p.value"
+colnames(albuni)[colnames(albuni) == "2.5 %"] <- "conf.low"
+colnames(albuni)[colnames(albuni) == "97.5 %"] <- "conf.high"
+
+albuni_table <- as.data.frame(albuni)
+albuni_table <- albuni_table %>% 
+  fmutate(across(c("estimate", "conf.low", "conf.high"), round, 2)) %>%  
+  mutate(p.value = case_when(
+    p.value < .001 ~ "**", 
+    p.value < .01 ~ "*", 
+    TRUE ~ str_pad(as.character(round(p.value, 2)),width=4,pad="0",side="right"))) %>%   #this takes p.value down to very very low, come back to this
+  mutate("HR (95% CI)" = paste0(estimate, " (", conf.low, "-", conf.high,")", p.value))
+
+```
+ 
+```{r alb + age + sex}
+#multivariate albumin table
+albcox_summary <- summary(coxph(Surv(days_to_event, death_event) ~ alb_category + age_category + Phy_Sex, data = categorised))
+albcox_coef <- albcox_summary$coefficients
+albcox_ci <- exp(confint(coxph(Surv(days_to_event, death_event) ~ alb_category + age_category + Phy_Sex, data = categorised)))
+albcox <- cbind(albcox_coef, albcox_ci)
+albcox <- albcox %>% 
+  subset(select = c("exp(coef)", "Pr(>|z|)", "2.5 %", "97.5 %"))
+
+colnames(albcox)[colnames(albcox) == "exp(coef)"] <- "estimate"
+colnames(albcox)[colnames(albcox) == "Pr(>|z|)"] <- "p.value"
+colnames(albcox)[colnames(albcox) == "2.5 %"] <- "conf.low"
+colnames(albcox)[colnames(albcox) == "97.5 %"] <- "conf.high"
+
+albcox_table <- as.data.frame(albcox)
+albcox_table <- albcox_table %>% 
+  fmutate(across(c("estimate", "conf.low", "conf.high"), round, 2)) %>%  
+  mutate(p.value = case_when(
+    p.value < .001 ~ "**", 
+    p.value < .01 ~ "*", 
+    TRUE ~ str_pad(as.character(round(p.value, 2)),width=4,pad="0",side="right"))) %>%   #this takes p.value down to very very low, come back to this
+  mutate("HR (95% CI)" = paste0(estimate, " (", conf.low, "-", conf.high,")", p.value))
+
+```
+ 
+```{r hyp univariate}
+#univariate systolic blood pressure table
+hypuni_summary <- summary(coxph(Surv(days_to_event, death_event) ~ hyp_category, data = categorised))
+hypuni_coef <- hypuni_summary$coefficients
+hypuni_ci <- exp(confint(coxph(Surv(days_to_event, death_event) ~ hyp_category, data = categorised)))
+hypuni <- cbind(hypuni_coef, hypuni_ci)
+hypuni <- hypuni %>% 
+  subset(select = c("exp(coef)", "Pr(>|z|)", "2.5 %", "97.5 %"))
+
+colnames(hypuni)[colnames(hypuni) == "exp(coef)"] <- "estimate"
+colnames(hypuni)[colnames(hypuni) == "Pr(>|z|)"] <- "p.value"
+colnames(hypuni)[colnames(hypuni) == "2.5 %"] <- "conf.low"
+colnames(hypuni)[colnames(hypuni) == "97.5 %"] <- "conf.high"
+hypuni
+
+hypuni_table <- as.data.frame(hypuni)
+hypuni_table <- hypuni_table %>% 
+  fmutate(across(c("estimate", "conf.low", "conf.high"), round, 2)) %>%  
+  mutate(p.value = case_when(
+    p.value < .001 ~ "**", 
+    p.value < .01 ~ "*", 
+    TRUE ~ str_pad(as.character(round(p.value, 2)),width=4,pad="0",side="right"))) %>% 
+  mutate("HR (95% CI)" = paste0(estimate, " (", conf.low, "-", conf.high,")", p.value))
+hypuni_table
+```
+
+```{r hyp + age + sex}
+#multivariate systolic blood pressure table
+hypcox_summary <- summary(coxph(Surv(days_to_event, death_event) ~ hyp_category + age_category + Phy_Sex, data = categorised))
+hypcox_coef <- hypcox_summary$coefficients
+hypcox_ci <- exp(confint(coxph(Surv(days_to_event, death_event) ~ hyp_category + age_category + Phy_Sex, data = categorised)))
+hypcox <- cbind(hypcox_coef, hypcox_ci)
+hypcox <- hypcox %>% 
+  subset(select = c("exp(coef)", "Pr(>|z|)", "2.5 %", "97.5 %"))
+
+colnames(hypcox)[colnames(hypcox) == "exp(coef)"] <- "estimate"
+colnames(hypcox)[colnames(hypcox) == "Pr(>|z|)"] <- "p.value"
+colnames(hypcox)[colnames(hypcox) == "2.5 %"] <- "conf.low"
+colnames(hypcox)[colnames(hypcox) == "97.5 %"] <- "conf.high"
+hypcox
+
+hypcox_table <- as.data.frame(hypcox)
+hypcox_table <- hypcox_table %>% 
+  fmutate(across(c("estimate", "conf.low", "conf.high"), round, 2)) %>%  
+  mutate(p.value = case_when(
+    p.value < .001 ~ "**", 
+    p.value < .01 ~ "*", 
+    TRUE ~ str_pad(as.character(round(p.value, 2)),width=4,pad="0",side="right"))) %>% 
+  mutate("HR (95% CI)" = paste0(estimate, " (", conf.low, "-", conf.high,")", p.value))
+hypcox_table
+```
+
+```{r BMI univariate}
+#univariate BMI table
+BMIuni_summary <- summary(coxph(Surv(days_to_event, death_event) ~ BMI_category, data = categorised))
+BMIuni_coef <- BMIuni_summary$coefficients
+BMIuni_ci <- exp(confint(coxph(Surv(days_to_event, death_event) ~ BMI_category, data = categorised)))
+BMIuni <- cbind(BMIuni_coef, BMIuni_ci)
+BMIuni <- BMIuni %>% 
+  subset(select = c("exp(coef)", "Pr(>|z|)", "2.5 %", "97.5 %"))
+
+colnames(BMIuni)[colnames(BMIuni) == "exp(coef)"] <- "estimate"
+colnames(BMIuni)[colnames(BMIuni) == "Pr(>|z|)"] <- "p.value"
+colnames(BMIuni)[colnames(BMIuni) == "2.5 %"] <- "conf.low"
+colnames(BMIuni)[colnames(BMIuni) == "97.5 %"] <- "conf.high"
+BMIuni
+
+BMIuni_table <- as.data.frame(BMIuni)
+BMIuni_table <- BMIuni_table %>% 
+  fmutate(across(c("estimate", "conf.low", "conf.high"), round, 2)) %>% 
+  mutate(p.value = case_when(
+    p.value < .001 ~ "**", 
+    p.value < .01 ~ "*", 
+    TRUE ~ str_pad(as.character(round(p.value, 2)),width=4,pad="0",side="right"))) %>% 
+  mutate("HR (95% CI)" = paste0(estimate, " (", conf.low, "-", conf.high,")", p.value))
+
+```
+
+```{r BMI + age + sex}
+#multivariate BMI table
+BMIcox_summary <- summary(coxph(Surv(days_to_event, death_event) ~ BMI_category + age_category + Phy_Sex, data = categorised))
+BMIcox_coef <- BMIcox_summary$coefficients
+BMIcox_ci <- exp(confint(coxph(Surv(days_to_event, death_event) ~ BMI_category + age_category + Phy_Sex, data = categorised)))
+BMIcox <- cbind(BMIcox_coef, BMIcox_ci)
+BMIcox <- BMIcox %>% 
+  subset(select = c("exp(coef)", "Pr(>|z|)", "2.5 %", "97.5 %"))
+
+colnames(BMIcox)[colnames(BMIcox) == "exp(coef)"] <- "estimate"
+colnames(BMIcox)[colnames(BMIcox) == "Pr(>|z|)"] <- "p.value"
+colnames(BMIcox)[colnames(BMIcox) == "2.5 %"] <- "conf.low"
+colnames(BMIcox)[colnames(BMIcox) == "97.5 %"] <- "conf.high"
+BMIcox
+
+BMIcox_table <- as.data.frame(BMIcox)
+BMIcox_table <- BMIcox_table %>% 
+  fmutate(across(c("estimate", "conf.low", "conf.high"), round, 2)) %>%  
+  mutate(p.value = case_when(
+    p.value < .001 ~ "**", 
+    p.value < .01 ~ "*", 
+    TRUE ~ str_pad(as.character(round(p.value, 2)),width=4,pad="0",side="right"))) %>% 
+  mutate("HR (95% CI)" = paste0(estimate, " (", conf.low, "-", conf.high,")", p.value))
+BMIcox_table
+BMIuni_table
+```
+```{r age univariate}
+ageuni_summary <- summary(coxph(Surv(days_to_event, death_event) ~ age_category, data = categorised))
+ageuni_coef <- ageuni_summary$coefficients
+ageuni_ci <- exp(confint(coxph(Surv(days_to_event, death_event) ~ age_category, data = categorised)))
+ageuni <- cbind(ageuni_coef, ageuni_ci)
+ageuni <- ageuni %>% 
+  subset(select = c("exp(coef)", "Pr(>|z|)", "2.5 %", "97.5 %"))
+
+colnames(ageuni)[colnames(ageuni) == "exp(coef)"] <- "estimate"
+colnames(ageuni)[colnames(ageuni) == "Pr(>|z|)"] <- "p.value"
+colnames(ageuni)[colnames(ageuni) == "2.5 %"] <- "conf.low"
+colnames(ageuni)[colnames(ageuni) == "97.5 %"] <- "conf.high"
+ageuni
+
+ageuni_table <- as.data.frame(ageuni)
+ageuni_table <- ageuni_table %>% 
+  fmutate(across(c("estimate", "conf.low", "conf.high"), round, 2)) %>% 
+  mutate(p.value = case_when(
+    p.value < .001 ~ "**", 
+    p.value < .01 ~ "*", 
+    TRUE ~ str_pad(as.character(round(p.value, 2)),width=4,pad="0",side="right"))) %>% 
+  mutate("HR (95% CI)" = paste0(estimate, " (", conf.low, "-", conf.high,")", p.value))
+ageuni_table
+```
+```{r age + sex}
+agecox_summary <- summary(coxph(Surv(days_to_event, death_event) ~ age_category + Phy_Sex, data = categorised))
+agecox_coef <- agecox_summary$coefficients
+agecox_ci <- exp(confint(coxph(Surv(days_to_event, death_event) ~ age_category + Phy_Sex, data = categorised)))
+agecox <- cbind(agecox_coef, agecox_ci)
+agecox <- agecox %>% 
+  subset(select = c("exp(coef)", "Pr(>|z|)", "2.5 %", "97.5 %"))
+
+colnames(agecox)[colnames(agecox) == "exp(coef)"] <- "estimate"
+colnames(agecox)[colnames(agecox) == "Pr(>|z|)"] <- "p.value"
+colnames(agecox)[colnames(agecox) == "2.5 %"] <- "conf.low"
+colnames(agecox)[colnames(agecox) == "97.5 %"] <- "conf.high"
+agecox
+
+agecox_table <- as.data.frame(agecox)
+agecox_table <- agecox_table %>% 
+  fmutate(across(c("estimate", "conf.low", "conf.high"), round, 2)) %>% 
+  mutate(p.value = case_when(
+    p.value < .001 ~ "**", 
+    p.value < .01 ~ "*", 
+    TRUE ~ str_pad(as.character(round(p.value, 2)),width=4,pad="0",side="right"))) %>% 
+  mutate("HR (95% CI)" = paste0(estimate, " (", conf.low, "-", conf.high,")", p.value))
+agecox_table
+```
+```{r sex univariate}
+sexuni_summary <- summary(coxph(Surv(days_to_event, death_event) ~ Phy_Sex, data = categorised))
+sexuni_coef <- sexuni_summary$coefficients
+sexuni_ci <- exp(confint(coxph(Surv(days_to_event, death_event) ~ Phy_Sex, data = categorised)))
+sexuni <- cbind(sexuni_coef, sexuni_ci)
+sexuni <- sexuni %>% 
+  subset(select = c("exp(coef)", "Pr(>|z|)", "2.5 %", "97.5 %"))
+
+colnames(sexuni)[colnames(sexuni) == "exp(coef)"] <- "estimate"
+colnames(sexuni)[colnames(sexuni) == "Pr(>|z|)"] <- "p.value"
+colnames(sexuni)[colnames(sexuni) == "2.5 %"] <- "conf.low"
+colnames(sexuni)[colnames(sexuni) == "97.5 %"] <- "conf.high"
+sexuni
+
+sexuni_table <- as.data.frame(sexuni)
+sexuni_table <- sexuni_table %>% 
+  fmutate(across(c("estimate", "conf.low", "conf.high"), round, 2)) %>% 
+  mutate(p.value = case_when(
+    p.value < .001 ~ "**", 
+    p.value < .01 ~ "*", 
+    TRUE ~ str_pad(as.character(round(p.value, 2)),width=4,pad="0",side="right"))) %>% 
+  mutate("HR (95% CI)" = paste0(estimate, " (", conf.low, "-", conf.high,")", p.value))
+sexuni_table
+
+
+```
+```{r sex + age}
+sexcox_summary <- summary(coxph(Surv(days_to_event, death_event) ~ Phy_Sex + age_category, data = categorised))
+sexcox_coef <- sexcox_summary$coefficients
+sexcox_ci <- exp(confint(coxph(Surv(days_to_event, death_event) ~ Phy_Sex + age_category, data = categorised)))
+sexcox <- cbind(sexcox_coef, sexcox_ci)
+sexcox <- sexcox %>% 
+  subset(select = c("exp(coef)", "Pr(>|z|)", "2.5 %", "97.5 %"))
+
+colnames(sexcox)[colnames(sexcox) == "exp(coef)"] <- "estimate"
+colnames(sexcox)[colnames(sexcox) == "Pr(>|z|)"] <- "p.value"
+colnames(sexcox)[colnames(sexcox) == "2.5 %"] <- "conf.low"
+colnames(sexcox)[colnames(sexcox) == "97.5 %"] <- "conf.high"
+sexcox
+
+sexcox_table <- as.data.frame(sexcox)
+sexcox_table <- sexcox_table %>% 
+  fmutate(across(c("estimate", "conf.low", "conf.high"), round, 2)) %>%
+  mutate(p.value = case_when(
+    p.value < .001 ~ "**", 
+    p.value < .01 ~ "*", 
+    TRUE ~ str_pad(as.character(round(p.value, 2)),width=4,pad="0",side="right"))) %>% 
+  mutate("HR (95% CI)" = paste0(estimate, " (", conf.low, "-", conf.high,")", p.value))
+sexcox_table
+
+
+```
+
+```{r all + age + sex}
+#Make full survvial model using all predictors excepting BMI
+allcox_summary <- summary(coxph(Surv(days_to_event, death_event) ~ CKD_category +DM_category + Hb_category + alb_category + hyp_category + age_category + Phy_Sex, data = categorised))
+allcox_summary
+allcox_coef <- allcox_summary$coefficients
+allcox_ci <- exp(confint(coxph(Surv(days_to_event, death_event) ~ CKD_category +DM_category + Hb_category + alb_category + hyp_category + age_category + Phy_Sex, data = categorised)))
+allcox <- cbind(allcox_coef, allcox_ci)
+allcox <- allcox %>% 
+  subset(select = c("exp(coef)", "Pr(>|z|)", "2.5 %", "97.5 %"))
+
+#change column names
+colnames(allcox)[colnames(allcox) == "exp(coef)"] <- "estimate"
+colnames(allcox)[colnames(allcox) == "Pr(>|z|)"] <- "p.value"
+colnames(allcox)[colnames(allcox) == "2.5 %"] <- "conf.low"
+colnames(allcox)[colnames(allcox) == "97.5 %"] <- "conf.high"
+
+allcox_table <- as.data.frame(allcox)
+allcox_table <- allcox_table %>% 
+  fmutate(across(c("estimate", "conf.low", "conf.high"), round, 2)) %>% 
+   mutate(p.value = case_when(
+    p.value < .001 ~ "**", 
+    p.value < .01 ~ "*", 
+    TRUE ~ str_pad(as.character(round(p.value, 2)),width=4,pad="0",side="right"))) %>%  #this takes P-value down to very very low, come back to this
+  mutate("HR (95% CI) multivariate" = paste0(estimate, " (", conf.low, "-", conf.high,")", p.value))
+
+colnames(allcox_table)[colnames(allcox_table) == "p.value"] <- "P-value multivariate"
+allcox_table_MI <- allcox_table
+  
+```
+
+```{r multivariate datasets}
+#subset of allcox table to merge with the rest
+all_table  <- allcox_table %>% 
+#  mutate(Category = c("3a", "3b", "4", "5", "No data", "DM without recent test", "Controlled DM", "Uncontrolled DM", "Low", "No data", "Low", "No data", "High", "No data", "70-79", "80-89", "Over 90", "Under 60", "Male"), .before = estimate) %>% 
+#  mutate(Predictor = c("eGFR", "", "", "", "", "D", ""), .before = Category) %>% 
+  subset(select = c("HR (95% CI) multivariate", "P-value multivariate"))
+
+eGFR_multivariate = all_table[1:5,]
+DM_multivariate = all_table[6:8,]
+Hb_multivariate = all_table[9:10,]
+alb_multivariate = all_table[11:12,]
+hyp_multivariate = all_table[13:15,]
+age_multivariate = all_table[16:19,]
+sex_multivariate = all_table[20,]
+sex_multivariate
+#BMI formulation for no data
+
+BMI_multivariate <- data.frame(
+  BMI_id = c(1:6),
+  "HR.multivariate" = c("","", "", "", "", ""),
+  "P-value multivariate" = c("", "", "", "", "", ""))
+BMI_multivariate
+
+
+#BMI multivariate model
+allBMI_summary <- summary(coxph(Surv(days_to_event, death_event) ~ BMI_category + CKD_category +DM_category + Hb_category + alb_category + hyp_category + age_category + Phy_Sex, data = categorised))
+allBMI_summary
+allBMI_coef <- allBMI_summary$coefficients
+allBMI_ci <- exp(confint(coxph(Surv(days_to_event, death_event) ~ BMI_category + CKD_category +DM_category + Hb_category + alb_category + hyp_category + age_category + Phy_Sex, data = categorised)))
+allBMI <- cbind(allBMI_coef, allBMI_ci)
+allBMI <- allBMI %>% 
+  subset(select = c("exp(coef)", "Pr(>|z|)", "2.5 %", "97.5 %"))
+
+colnames(allBMI)[colnames(allBMI) == "exp(coef)"] <- "estimate"
+colnames(allBMI)[colnames(allBMI) == "Pr(>|z|)"] <- "p.value"
+colnames(allBMI)[colnames(allBMI) == "2.5 %"] <- "conf.low"
+colnames(allBMI)[colnames(allBMI) == "97.5 %"] <- "conf.high"
+
+allBMI_table <- as.data.frame(allBMI)
+allBMI_table <- allBMI_table %>% 
+  fmutate(across(c("estimate", "conf.low", "conf.high"), round, 2)) %>%  
+   mutate(p.value = case_when(
+    p.value < .001 ~ "**", 
+    p.value < .01 ~ "*", 
+    TRUE ~ str_pad(as.character(round(p.value, 2)),width=4,pad="0",side="right"))) %>%  #this takes P-value down to very very low, come back to this
+  mutate("HR (95% CI) multivariate" = paste0(estimate, " (", conf.low, "-", conf.high,")", p.value))
+
+colnames(allBMI_table)[colnames(allBMI_table) == "p.value"] <- "P-value multivariate"
+allBMI_table
+  
+BMI_multivariate_model <-allBMI_table[1:6,]
+BMI_multivariate_model <- BMI_multivariate_model %>% 
+  mutate(BMIcat = c("No data", "Obesity 1", "Obesity 2", "Obesity 3", "Overweight", "Underweight")) %>% 
+  arrange(factor(BMIcat, levels = c("Underweight", "Overweight", "Obesity 1", "Obesity 2", "Obesity 3", "No data"))) %>% 
+  subset(select = c("BMIcat", "HR (95% CI) multivariate", "P-value multivariate"))
+BMI_multivariate_model
+```
+
+```{r primary aim table - may be needed for sensitivity testing?}
+#need to include three aspects - eGFR univariate, possibly age and sex univariate, then eGFR age and sex then multivariate model
+#model 1 - merge with age and sex (even if I don't include these in the final model, it may be easier to add them in as NA or just delete in word)
+eGFR1_table <- rbind(eGFRuni_table, ageuni_table, sexuni_table)
+
+#to change some column names in the simplest manner after making changes to what I want 
+lookup1 <- c("Predictor" = "Predictor", "Category" = "Category", "HR (95% CI) 1" = "HR (95% CI)", "P-value 1" = "p.value")
+lookup2 <- c("Predictor 2" = "Predictor", "Category 2" = "Category", "HR (95% CI) 2" = "HR (95% CI)", "P-value 2" = "p.value")
+
+
+eGFR1_table <- eGFR1_table %>% 
+  mutate(Category = c("3a", "3b", "4", "5", "No data",
+                      "70-79", "80-89", "Over 90", "Under 60", "Male"), .before = estimate) %>% 
+  arrange(factor(Category, levels = c("3a", "3b", "4", "5", "No data",
+                                      "Under 60", "70-79", "80-89", "Over 90", "Male"))) %>% 
+  mutate(Predictor = c("eGFR", "", "", "", "", "Age", "", "", "", "Sex")) %>% 
+  subset(select = c("Predictor", "Category", "HR (95% CI)", "p.value")) %>% 
+  rename(all_of(lookup1))
+
+#model 2 - label properly
+eGFR2_table <- eGFRcox_table %>% 
+  mutate(Category = c("3a", "3b", "4", "5", "No data",
+                      "70-79", "80-89", "Over 90", "Under 60", "Male"), .before = estimate) %>% 
+  arrange(factor(Category, levels = c("3a", "3b", "4", "5", "No data", "Under 60", "70-79", "80-89", "Over 90", "Male"))) %>% 
+  mutate(Predictor = c("eGFR", "", "", "", "", "Age", "", "", "", "Sex")) %>% 
+  subset(select = c("Predictor", "Category", "HR (95% CI)", "p.value")) %>% 
+  rename(all_of(lookup2))
+
+#model 3 - multivariate - labels
+eGFR3_table <- rbind(eGFR_multivariate, age_multivariate, sex_multivariate)
+eGFR3_table <- eGFR3_table %>% mutate(Category = c("3a", "3b", "4", "5", "No data",
+                      "70-79", "80-89", "Over 90", "Under 60", "Male")) %>% 
+  arrange(factor(Category, levels = c("3a", "3b", "4", "5", "No data", "Under 60", "70-79", "80-89", "Over 90", "Male"))) %>% 
+  rename("HR (95% CI) 3" = "HR (95% CI) multivariate") %>% 
+  rename("P-value 3" = "P-value multivariate")
+
+primary_aim_table_MI <- cbind(eGFR1_table, eGFR2_table, eGFR3_table)
+primary_aim_table_MI
+primary_aim_table_MI <- primary_aim_table_MI %>% 
+  subset(select = c("Predictor", "Category", "HR (95% CI) 1", "HR (95% CI) 2", "HR (95% CI) 3"))
+#redo this so the p-value is a * - this information is not needed 
+setwd("D:/HannahNicoll/Tibbles")
+write.table(primary_aim_table_MI, file = "Primary aim table MI 0207", sep = ",", quote = FALSE, row.names = FALSE)
+```
+```{r model 2}
+
+DM_table2 <- DMcox_table[1:3,]
+DM_table2  <- DM_table2 %>% 
+  mutate(Category = c("DM no test", "Controlled DM", "Uncontrolled DM"), .before = estimate) %>% 
+  mutate(Predictor = c("Diabetes Mellitus", "", ""), .before = Category) %>% 
+#  subset(select = c("Predictor", "Category", "HR (95% CI)", "p.value"))
+  subset(select = c("HR (95% CI)", "p.value")) %>% 
+rename("HR (95% CI) 2" = "HR (95% CI)",  "P-value 2" = "p.value")
+
+Hb_table2 <- Hbcox_table[1:2,]
+Hb_table2  <- Hb_table2 %>% 
+  mutate(Category = c("Low", "No data"), .before = estimate) %>% 
+  mutate(Predictor = c("Haemoglobin", ""), .before = Category) %>% 
+#  subset(select = c("Predictor", "Category", "HR (95% CI)", "p.value")) %>% 
+  subset(select = c("HR (95% CI)", "p.value")) %>% 
+rename("HR (95% CI) 2" = "HR (95% CI)",  "P-value 2" = "p.value")
+
+alb_table2 <- albcox_table[1:2,]
+alb_table2  <- alb_table2 %>% 
+  mutate(Category = c("Low", "No data"), .before = estimate) %>% 
+  mutate(Predictor = c("Albumin", ""), .before = Category) %>% 
+#  subset(select = c("Predictor", "Category", "HR (95% CI)", "p.value")) 
+  subset(select = c("HR (95% CI)", "p.value")) %>% 
+rename("HR (95% CI) 2" = "HR (95% CI)",  "P-value 2" = "p.value")
+
+hyp_table2 <- hypcox_table[1:3,]
+hyp_table2  <- hyp_table2 %>% 
+  mutate(Category = c("High", "Low", "No data"), .before = estimate) %>% 
+  mutate(Predictor = c("Hypertension", "", ""), .before = Category) %>% 
+#  subset(select = c("Predictor", "Category", "HR (95% CI)", "p.value"))
+subset(select = c("HR (95% CI)", "p.value")) %>% 
+rename("HR (95% CI) 2" = "HR (95% CI)",  "P-value 2" = "p.value")
+
+BMI_table2 <- BMIcox_table[1:6,]
+BMI_table2  <- BMI_table2%>% 
+  mutate(BMIcat = c("No data", "Obesity 1", "Obesity 2", "Obesity 3", "Overweight", "Underweight")) %>% 
+  arrange(factor(BMIcat, levels = c("Underweight", "Overweight", "Obesity 1", "Obesity 2", "Obesity 3", "No data"))) %>% 
+#  subset(select = c("BMIcat", "HR (95% CI)", "p.value"))
+  subset(select = c("HR (95% CI)", "p.value")) %>% 
+rename("HR (95% CI) 2" = "HR (95% CI)",  "P-value 2" = "p.value")
+
+age_table2 <- agecox_table[1:4,] 
+
+age_table2 <- age_table2 %>% 
+  mutate(Category = c("70-79", "80-89", "Over 90", "Under 60")) %>% 
+  arrange(factor(Category, levels = c("Under 60", "70-79", "80-89", "Over 90"))) %>% 
+  mutate(Predictor = c("Age", "", "", "")) %>% 
+#  subset(select = c("Predictor", "Category", "HR (95% CI)", "p.value", "HR (95% CI) multivariate", "P-value multivariate"))
+subset(select = c("HR (95% CI)", "p.value")) %>% 
+  rename("HR (95% CI) 2" = "HR (95% CI)",  "P-value 2" = "p.value")
+
+sex_table2 <- sexcox_table[1,]
+sex_table2 <- sex_table2 %>% 
+  mutate(Category = c("Male")) %>% 
+  mutate(Predictor = c("Sex")) %>% 
+#  subset(select = c("Predictor", "Category", "HR (95% CI)", "p.value"))
+  subset(select = c("HR (95% CI)", "p.value")) %>% 
+  rename("HR (95% CI) 2" = "HR (95% CI)",  "P-value 2" = "p.value")
+```
+
+```{r model 1}
+
+DM_table1 <- DMuni_table %>% 
+  mutate(Category = c("DM without recent test", "Controlled DM", "Uncontrolled DM"), .before = estimate) %>% 
+  mutate(Predictor = c("Diabetes Mellitus", "", ""), .before = Category) %>% 
+  subset(select = c("Predictor", "Category", "HR (95% CI)", "p.value")) %>% 
+  rename("HR (95% CI) 1" = "HR (95% CI)",  "P-value 1" = "p.value")
+
+Hb_table1 <- Hbuni_table %>% 
+  mutate(Category = c("Low", "No data"), .before = estimate) %>% 
+  mutate(Predictor = c("Haemoglobin", ""), .before = Category) %>% 
+  subset(select = c("Predictor", "Category", "HR (95% CI)", "p.value")) %>% 
+  rename("HR (95% CI) 1" = "HR (95% CI)",  "P-value 1" = "p.value")
+
+alb_table1 <- albuni_table %>% 
+  mutate(Category = c("Low", "No data"), .before = estimate) %>% 
+  mutate(Predictor = c("Albumin", ""), .before = Category) %>% 
+  subset(select = c("Predictor", "Category", "HR (95% CI)", "p.value")) %>% 
+  rename("HR (95% CI) 1" = "HR (95% CI)",  "P-value 1" = "p.value")
+
+hyp_table1 <- hypuni_table %>% 
+  mutate(Category = c("High", "Low", "No data"), .before = estimate) %>% 
+  mutate(Predictor = c("Hypertension", "", ""), .before = Category) %>% 
+  subset(select = c("Predictor", "Category", "HR (95% CI)", "p.value")) %>% 
+  rename("HR (95% CI) 1" = "HR (95% CI)",  "P-value 1" = "p.value")
+
+BMI_table1 <- BMIuni_table %>% 
+  mutate(Category = c("No data", "Obesity 1", "Obesity 2", "Obesity 3", "Overweight", "Underweight")) %>% 
+  arrange(factor(Category, levels = c("Underweight", "Overweight", "Obesity 1", "Obesity 2", "Obesity 3", "No data"))) %>% 
+  mutate(Predictor = c("BMI", "", "", "", "", "")) %>% 
+  subset(select = c("Predictor", "Category", "HR (95% CI)", "p.value")) %>% 
+    rename("HR (95% CI) 1" = "HR (95% CI)",  "P-value 1" = "p.value")
+
+age_table1 <- ageuni_table %>% 
+  mutate(Category = c("70-79", "80-89", "Over 90", "Under 60")) %>% 
+  arrange(factor(Category, levels = c("Under 60", "70-79", "80-89", "Over 90"))) %>% 
+  mutate(Predictor = c("Age", "", "", "")) %>% 
+  subset(select = c("Predictor", "Category", "HR (95% CI)", "p.value")) %>% 
+  rename("HR (95% CI) 1" = "HR (95% CI)",  "P-value 1" = "p.value")
+
+sex_table1 <- sexuni_table %>% 
+  mutate(Category = c("Male")) %>% 
+  mutate(Predictor = c("Sex")) %>% 
+  subset(select = c("Predictor", "Category", "HR (95% CI)", "p.value")) %>% 
+  rename("HR (95% CI) 1" = "HR (95% CI)",  "P-value 1" = "p.value")
+
+```
+
+```{r combine to make secondary aim table}
+eGFR_table <- cbind(eGFR1_table, eGFR2_table, eGFR_multivariate)
+DM_table <- cbind(DM_table1, DM_table2, DM_multivariate)
+DM_table <- DM_table %>% 
+  subset(select = c("Predictor", "Category", "HR (95% CI) 1", "HR (95% CI) 2", "HR (95% CI) multivariate")) %>% 
+  rename("HR (95% CI) 3" = "HR (95% CI) multivariate")
+Hb_table <- cbind(Hb_table1, Hb_table2, Hb_multivariate)
+Hb_table <- Hb_table %>% 
+  subset(select = c("Predictor", "Category", "HR (95% CI) 1", "HR (95% CI) 2", "HR (95% CI) multivariate")) %>% 
+  rename("HR (95% CI) 3" = "HR (95% CI) multivariate")
+alb_table <- cbind(alb_table1, alb_table2, alb_multivariate)
+alb_table <- alb_table %>% 
+  subset(select = c("Predictor", "Category", "HR (95% CI) 1", "HR (95% CI) 2", "HR (95% CI) multivariate")) %>% 
+  rename("HR (95% CI) 3" = "HR (95% CI) multivariate")
+hyp_table <- cbind(hyp_table1, hyp_table2, hyp_multivariate)
+hyp_table1
+hyp_table <- hyp_table  %>% 
+  subset(select = c("Predictor", "Category", "HR (95% CI) 1", "HR (95% CI) 2", "HR (95% CI) multivariate")) %>% 
+  rename("HR (95% CI) 3" = "HR (95% CI) multivariate")
+BMI_table_NA <- cbind(BMI_table1, BMI_table2, BMI_multivariate)
+BMI_table_NA <- BMI_table_NA %>% 
+  subset(select = c("Predictor", "Category", "HR (95% CI) 1", "HR (95% CI) 2", "HR.multivariate")) %>% 
+  rename("HR (95% CI) 3" = "HR.multivariate")
+BMI_table_model <- cbind(BMI_table1, BMI_table2, BMI_multivariate_model)
+BMI_table_model <- BMI_table_model %>% 
+  subset(select = c("Predictor", "Category", "HR (95% CI) 1", "HR (95% CI) 2", "HR (95% CI) multivariate")) %>% 
+  rename("HR (95% CI) 3" = "HR (95% CI) multivariate")
+
+sex_table <- cbind(sex_table1, sex_table2, sex_multivariate)
+
+secondary_aim_table <- rbind(DM_table, Hb_table, alb_table, hyp_table, BMI_table_NA) #may want to add in age and sex
+#colnames(secondary_aim_table)[colnames(secondary_aim_table) == "p.value"] <- "P-value"
+
+secondary_aim_table
+setwd("D:/HannahNicoll/Tibbles") #or I should make one big tibble
+write.table(secondary_aim_table, file = "Secondary aim table MI 0207", sep = ",", quote = FALSE, row.names = FALSE)
+
+```
+
+# CCA dataset for sensitivity analyses
+
+```{r eGFR + age + sex}
+eGFRcox_summary <- summary(coxph(Surv(days_to_event, death_event) ~ CKD_category + age_category + Phy_Sex, data = categorised_CCA_sensitivity))
+eGFRcox_coef <- eGFRcox_summary$coefficients
+eGFRcox_ci <- exp(confint(coxph(Surv(days_to_event, death_event) ~ CKD_category + age_category + Phy_Sex, data = categorised_CCA_sensitivity)))
+eGFRcox <- cbind(eGFRcox_coef, eGFRcox_ci)
+eGFRcox <- eGFRcox %>% 
+  subset(select = c("exp(coef)", "Pr(>|z|)", "2.5 %", "97.5 %"))
+colnames(eGFRcox)[colnames(eGFRcox) == "exp(coef)"] <- "estimate"
+colnames(eGFRcox)[colnames(eGFRcox) == "Pr(>|z|)"] <- "p.value"
+colnames(eGFRcox)[colnames(eGFRcox) == "2.5 %"] <- "conf.low"
+colnames(eGFRcox)[colnames(eGFRcox) == "97.5 %"] <- "conf.high"
+
+eGFRcox_table <- as.data.frame(eGFRcox)
+eGFRcox_table <- eGFRcox_table %>% 
+  fmutate(across(c("estimate", "conf.low", "conf.high"), round, 2)) %>% 
+  mutate(p.value = case_when(
+    p.value < .001 ~ "**", 
+    p.value < .01 ~ "*", 
+    TRUE ~ str_pad(as.character(round(p.value, 2)),width=4,pad="0",side="right"))) %>% 
+  mutate("HR (95% CI)" = paste0(estimate, " (", conf.low, "-", conf.high,")", p.value))
+
+```
+
+```{r primary aim table}
+
+eGFRcox_table <- eGFRcox_table %>% 
+  mutate(Category = c("3a", "3b", "4", "5", "70-79", "80-89", "Over 90", "Under 60", "Male"), .before = estimate) %>% 
+  arrange(factor(Category, levels = c("3a", "3b", "4", "5", "Under 60", "70-79", "80-89", "Over 90", "Male"))) %>% 
+  mutate(Predictor = c("eGFR", "", "", "", "Age", "", "", "", "Sex")) %>% 
+  subset(select = c("Predictor", "Category", "HR (95% CI)", "p.value"))
+primary_aim_table_CCA <- eGFRcox_table
+
+```
+
+```{r eGFR plus all predictors multivariate dataset}
+#make different DM variable to account for CCA - is this the best way to do it? I think I'll add this to a list of things to query w.r. paper publishing and something to heavily justify in dissertation.
+
+categorised_CCA_DM <- categorised_CCA_sensitivity %>% 
+  mutate(DM_category_CCA = case_when(DM_category == "No_diagnosis" ~ "No DM",
+                                     DM_category != "No_diagnosis" ~ "DM diagnosis"))
+categorised_CCA_DM$DM_category_CCA = as.factor(categorised_CCA_DM$DM_category_CCA)
+categorised_CCA_DM$DM_category_CCA <- relevel(categorised_CCA_DM$DM_category_CCA, ref = "No DM")
+
+CCAfull_summary <- summary(coxph(Surv(days_to_event, death_event) ~ CKD_category + DM_category_CCA + Hb_category + alb_category + hyp_category + age_category + Phy_Sex, data = categorised_CCA_DM))
+CCAfull_coef <- CCAfull_summary$coefficients
+CCAfull_ci <- exp(confint(coxph(Surv(days_to_event, death_event) ~ CKD_category + DM_category_CCA + Hb_category + alb_category + hyp_category + age_category + Phy_Sex, data = categorised_CCA_DM)))
+CCAfull <- cbind(CCAfull_coef, CCAfull_ci)
+CCAfull <- CCAfull %>% 
+  subset(select = c("exp(coef)", "Pr(>|z|)", "2.5 %", "97.5 %"))
+colnames(CCAfull)[colnames(CCAfull) == "exp(coef)"] <- "estimate"
+colnames(CCAfull)[colnames(CCAfull) == "Pr(>|z|)"] <- "p.value"
+colnames(CCAfull)[colnames(CCAfull) == "2.5 %"] <- "conf.low"
+colnames(CCAfull)[colnames(CCAfull) == "97.5 %"] <- "conf.high"
+
+CCAfull_table <- as.data.frame(CCAfull)
+CCAfull_table <- CCAfull_table %>% 
+  fmutate(across(c("estimate", "conf.low", "conf.high"), round, 2)) %>% 
+  mutate(p.value = case_when(
+    p.value < .001 ~ "**", 
+    p.value < .01 ~ "*", 
+    TRUE ~ str_pad(as.character(round(p.value, 2)),width=4,pad="0",side="right"))) %>% 
+  mutate("HR (95% CI)" = paste0(estimate, " (", conf.low, "-", conf.high,")", p.value))
+
+``` 
+
+```{r secondary aim table}
+#create extra rows - need 1 for no data eGFR, 3 for DM, 1 for Hb, 1 for alb, 1 for hyp =7
+
+extra_columns <- (matrix(c("N/A", "N/A", "N/A", "N/A", "N/A", "N/A", "N/A", "N/A", "N/A", "N/A", "N/A", "N/A", "N/A", "N/A","N/A", "N/A", "N/A", "N/A", "N/A", "N/A", "N/A","N/A", "N/A", "N/A", "N/A", "N/A", "N/A", "N/A","N/A", "N/A", "N/A", "N/A", "N/A", "N/A", "N/A"), ncol = 5))
+colnames(extra_columns) <- c("estimate", "p.value", "conf.low", "conf.high", "HR (95% CI)")
+rownames(extra_columns) <- c("No eGFR data", "No HbA1c data", "DM controlled", "DM uncontrolled", "No Hb data", "No alb data", "No SPB data")
+extra_columns <- as.data.frame(extra_columns)
+
+CCAfull_table <- rbind(CCAfull_table, extra_columns )
+
+CCAfull_table <- CCAfull_table %>% 
+  mutate(Category = c("3a", "3b", "4", "5", "DM diagnosis", "Low Hb", "Low alb", "High SBP", "Low SBP", "70-79", "80-89", "Over 90", "Under 60", "Male", "No eGFR data", "No HbA1c data", "DM controlled", "DM uncontrolled", "No Hb data", "No alb data", "No SBP data" ), .before = estimate) %>% 
+  arrange(factor(Category, levels = c("3a", "3b", "4", "5", "No eGFR data", "DM controlled", "DM uncontrolled", "DM diagnosis", "No HbA1c data", "Low Hb", "No Hb data", "Low alb", "No alb data", "High SBP", "Low SBP", "No SBP data", "Under 60", "70-79", "80-89", "Over 90", "Male"))) %>% 
+  mutate(Predictor = c("eGFR", "", "", "", "", "DM", "", "", "", "Hb", "", "Alb", "", "SBP", "", "", "Age", "", "", "", "Sex")) %>% 
+  subset(select = c("Category", "HR (95% CI)"))
+secondary_aim_table_CCA <- CCAfull_table
+
+
+```
+## 2020 cut (whole data, missing indicator)
+
+```{r eGFR + age + sex}
+eGFRcox_summary <- summary(coxph(Surv(days_to_event_2020, death_event_2020) ~ CKD_category + age_category + Phy_Sex, data = categorised_2020))
+eGFRcox_coef <- eGFRcox_summary$coefficients
+eGFRcox_ci <- exp(confint(coxph(Surv(days_to_event_2020, death_event_2020) ~ CKD_category + age_category + Phy_Sex, data = categorised_2020)))
+eGFRcox <- cbind(eGFRcox_coef, eGFRcox_ci)
+eGFRcox <- eGFRcox %>% 
+  subset(select = c("exp(coef)", "Pr(>|z|)", "2.5 %", "97.5 %"))
+colnames(eGFRcox)[colnames(eGFRcox) == "exp(coef)"] <- "estimate"
+colnames(eGFRcox)[colnames(eGFRcox) == "Pr(>|z|)"] <- "p.value"
+colnames(eGFRcox)[colnames(eGFRcox) == "2.5 %"] <- "conf.low"
+colnames(eGFRcox)[colnames(eGFRcox) == "97.5 %"] <- "conf.high"
+
+eGFRcox_table <- as.data.frame(eGFRcox)
+eGFRcox_table <- eGFRcox_table %>% 
+  fmutate(across(c("estimate", "conf.low", "conf.high"), round, 2)) %>% 
+  mutate(p.value = case_when(
+    p.value < .001 ~ "**", 
+    p.value < .01 ~ "*", 
+    TRUE ~ str_pad(as.character(round(p.value, 2)),width=4,pad="0",side="right"))) %>% 
+  mutate("HR (95% CI)" = paste0(estimate, " (", conf.low, "-", conf.high,")", p.value))
+
+```
+
+```{r primary aim table - may be needed for sensitivity testing?}
+
+eGFRcox_table <- eGFRcox_table %>% 
+  mutate(Category = c("3a", "3b", "4", "5", "No data", "70-79", "80-89", "Over 90", "Under 60", "Male"), .before = estimate) %>% 
+  arrange(factor(Category, levels = c("3a", "3b", "4", "5", "No data", "Under 60", "70-79", "80-89", "Over 90", "Male"))) %>% 
+  mutate(Predictor = c("eGFR", "", "", "", "", "Age", "", "", "", "Sex")) %>% 
+  subset(select = c("Category", "HR (95% CI)"))
+primary_aim_table_2020 <- eGFRcox_table
+
+setwd("D:/HannahNicoll/Tibbles") #or I should make one big tibble
+write.table(primary_aim_table_2020, file = "Primary aim table 2020", sep = ",", quote = FALSE, row.names = FALSE)
+
+```
+
+```{r eGFR plus all predictors secondary dataset}
+
+full2020_summary <- summary(coxph(Surv(days_to_event_2020, death_event_2020) ~ CKD_category + DM_category + Hb_category + alb_category + hyp_category + age_category + Phy_Sex, data = categorised_2020))
+full2020_coef <- full2020_summary$coefficients
+full2020_ci <- exp(confint(coxph(Surv(days_to_event_2020, death_event_2020) ~ CKD_category + DM_category + Hb_category + alb_category + hyp_category + age_category + Phy_Sex, data = categorised_2020)))
+full2020 <- cbind(full2020_coef, full2020_ci)
+full2020 <- full2020 %>% 
+  subset(select = c("exp(coef)", "Pr(>|z|)", "2.5 %", "97.5 %"))
+colnames(full2020)[colnames(full2020) == "exp(coef)"] <- "estimate"
+colnames(full2020)[colnames(full2020) == "Pr(>|z|)"] <- "p.value"
+colnames(full2020)[colnames(full2020) == "2.5 %"] <- "conf.low"
+colnames(full2020)[colnames(full2020) == "97.5 %"] <- "conf.high"
+
+full2020_table <- as.data.frame(full2020)
+full2020_table <- full2020_table %>% 
+  fmutate(across(c("estimate", "conf.low", "conf.high"), round, 2)) %>%   
+  mutate(p.value = case_when(
+    p.value < .001 ~ "**", 
+    p.value < .01 ~ "*", 
+    TRUE ~ str_pad(as.character(round(p.value, 2)),width=4,pad="0",side="right"))) %>% 
+  mutate("HR (95% CI)" = paste0(estimate, " (", conf.low, "-", conf.high,")", p.value))
+
+```
+
+```{r make table for secondary aim}
+#need an extra row for the extra DM category created
+extra_column <- (matrix(c("N/A", "N/A", "N/A", "N/A", "N/A"), ncol = 5))
+colnames(extra_column) <- c("estimate", "p.value", "conf.low", "conf.high", "HR (95% CI)")
+rownames(extra_column) <- c("DM diagnosis")
+extra_column <- as.data.frame(extra_column)
+
+full2020_table <- rbind(full2020_table, extra_column)
+
+full2020_table <- full2020_table %>% 
+  mutate(Category = c("3a", "3b", "4", "5", "No eGFR data", "DM controlled", "DM uncontrolled", "No HbA1c data", "Low Hb", "No Hb data", "Low alb", "No alb data", "High SBP", "Low SBP", "No SBP data",  "70-79", "80-89", "Over 90", "Under 60","Male", "DM diagnosis"), .before = estimate) %>% 
+  arrange(factor(Category, levels = c("3a", "3b", "4", "5", "No eGFR data", "DM controlled", "DM uncontrolled", "DM diagnosis", "No HbA1c data", "Low Hb", "No Hb data", "Low alb", "No alb data", "High SBP", "Low SBP", "No SBP data", "Under 60", "70-79", "80-89", "Over 90", "Male"))) %>% 
+  mutate(Predictor = c("eGFR", "", "", "", "", "DM", "", "", "", "Hb", "", "Alb", "", "SBP", "", "", "Age", "", "", "", "Sex")) %>% 
+  subset(select = c( "Category", "HR (95% CI)"))
+secondary_aim_table_2020 <- full2020_table
+
+```
+##Different way of processing creatinine
+
+```{r eGFR + age + sex}
+eGFRcrecox_summary <- summary(coxph(Surv(days_to_event, death_event) ~ CKD_category + age_category + Phy_Sex, data = categorised_cre_sensitivity))
+eGFRcrecox_coef <- eGFRcrecox_summary$coefficients
+eGFRcrecox_ci <- exp(confint(coxph(Surv(days_to_event, death_event) ~ CKD_category + age_category + Phy_Sex, data = categorised_cre_sensitivity)))
+eGFRcrecox <- cbind(eGFRcrecox_coef, eGFRcrecox_ci)
+eGFRcrecox <- eGFRcrecox %>% 
+  subset(select = c("exp(coef)", "Pr(>|z|)", "2.5 %", "97.5 %"))
+colnames(eGFRcrecox)[colnames(eGFRcrecox) == "exp(coef)"] <- "estimate"
+colnames(eGFRcrecox)[colnames(eGFRcrecox) == "Pr(>|z|)"] <- "p.value"
+colnames(eGFRcrecox)[colnames(eGFRcrecox) == "2.5 %"] <- "conf.low"
+colnames(eGFRcrecox)[colnames(eGFRcrecox) == "97.5 %"] <- "conf.high"
+
+eGFRcrecox_table <- as.data.frame(eGFRcrecox)
+eGFRcrecox_table <- eGFRcrecox_table %>% 
+  fmutate(across(c("estimate", "conf.low", "conf.high"), round, 2)) %>%   
+  mutate(p.value = case_when(
+    p.value < .001 ~ "**", 
+    p.value < .01 ~ "*", 
+    TRUE ~ str_pad(as.character(round(p.value, 2)),width=4,pad="0",side="right"))) %>% 
+  mutate("HR (95% CI)" = paste0(estimate, " (", conf.low, "-", conf.high,")", p.value))
+
+#need to add in category column
+```
+
+
+```{r primary aim table - may be needed for sensitivity testing?}
+
+eGFRcrecox_table <- eGFRcrecox_table %>% 
+  mutate(Category = c("3a", "3b", "4", "5", "No data", "70-79", "80-89", "Over 90", "Under 60", "Male"), .before = estimate) %>% 
+  arrange(factor(Category, levels = c("3a", "3b", "4", "5", "No data", "Under 60", "70-79", "80-89", "Over 90", "Male"))) %>% 
+  mutate(Predictor = c("eGFR", "", "", "", "", "Age", "", "", "", "Sex")) %>% 
+  subset(select = c("Predictor", "Category", "HR (95% CI)", "p.value"))
+
+primary_aim_table_cre <- eGFRcrecox_table
+setwd("D:/HannahNicoll/Tibbles")
+write.table(primary_aim_table_cre, file = "Primary aim table cre", sep = ",", quote = FALSE, row.names = FALSE)
+```
+
+#Creatinine only CCA - only relevant for primary aim
+
+```{r eGFR + age + sex}
+eGFRcreCCAcox_summary <- summary(coxph(Surv(days_to_event, death_event) ~ CKD_category + age_category + Phy_Sex, data = categorised_CCA_cre_sensitivity))
+eGFRcreCCAcox_coef <- eGFRcreCCAcox_summary$coefficients
+eGFRcreCCAcox_ci <- exp(confint(coxph(Surv(days_to_event, death_event) ~ CKD_category + age_category + Phy_Sex, data = categorised_CCA_cre_sensitivity)))
+eGFRcreCCAcox <- cbind(eGFRcreCCAcox_coef, eGFRcreCCAcox_ci)
+eGFRcreCCAcox <- eGFRcreCCAcox %>% 
+  subset(select = c("exp(coef)", "Pr(>|z|)", "2.5 %", "97.5 %"))
+colnames(eGFRcreCCAcox)[colnames(eGFRcreCCAcox) == "exp(coef)"] <- "estimate"
+colnames(eGFRcreCCAcox)[colnames(eGFRcreCCAcox) == "Pr(>|z|)"] <- "p.value"
+colnames(eGFRcreCCAcox)[colnames(eGFRcreCCAcox) == "2.5 %"] <- "conf.low"
+colnames(eGFRcreCCAcox)[colnames(eGFRcreCCAcox) == "97.5 %"] <- "conf.high"
+
+eGFRcreCCAcox_table <- as.data.frame(eGFRcreCCAcox)
+eGFRcreCCAcox_table <- eGFRcreCCAcox_table %>% 
+  fmutate(across(c("estimate", "conf.low", "conf.high"), round, 2)) %>%    
+  mutate(p.value = case_when(
+    p.value < .001 ~ "**", 
+    p.value < .01 ~ "*", 
+    TRUE ~ str_pad(as.character(round(p.value, 2)),width=4,pad="0",side="right"))) %>% 
+  mutate("HR (95% CI)" = paste0(estimate, " (", conf.low, "-", conf.high,")", p.value))
+
+#need to add in category column
+```
+
+```{r primary aim table - may be needed for sensitivity testing?}
+
+eGFRcreCCAcox_table <- eGFRcreCCAcox_table %>% 
+  mutate(Category = c("3a", "3b", "4", "5", "70-79", "80-89", "Over 90", "Under 60", "Male"), .before = estimate) %>% 
+  arrange(factor(Category, levels = c("3a", "3b", "4", "5", "Under 60", "70-79", "80-89", "Over 90", "Male"))) %>% 
+  mutate(Predictor = c("eGFR", "", "", "", "Age", "", "", "", "Sex")) %>% 
+  subset(select = c("Predictor", "Category", "HR (95% CI)", "p.value"))
+
+primary_aim_table_CCA_cre <- eGFRcreCCAcox_table
+setwd("D:/HannahNicoll/Tibbles")
+write.table(primary_aim_table_CCA_cre, file = "Primary aim table CCA cre", sep = ",", quote = FALSE, row.names = FALSE)
+```
+
+```{r make primary sensitivity analysis table}
+primary_aim_table_MI_2 <- primary_aim_table_MI %>% 
+  subset(select = c("Predictor", "Category", "HR (95% CI) 2")) %>% 
+  rename(
+    "HR (95% CI) MI" = "HR (95% CI) 2",
+  )
+
+primary_aim_table_CCA_cre_2 <- primary_aim_table_CCA_cre %>% 
+  subset(select = c("Category", "HR (95% CI)")) %>% 
+  rename("HR (95% CI) CCA" = "HR (95% CI)") 
+
+primary_aim_table_2020_2 <- primary_aim_table_2020 %>% 
+    subset(select = c("Category", "HR (95% CI)")) %>% 
+  rename(
+    "HR (95% CI) 2020" = "HR (95% CI)")
+primary_aim_table_cre_2 <- primary_aim_table_cre %>% 
+    subset(select = c("Category", "HR (95% CI)")) %>% 
+  rename(
+    "HR (95% CI) cre" = "HR (95% CI)")
+
+
+
+
+big_sensitivity <- left_join(primary_aim_table_MI_2, primary_aim_table_CCA_cre_2, by = "Category")
+big_sensitivity <- left_join(big_sensitivity, primary_aim_table_2020_2, by = "Category")
+big_sensitivity <- left_join(big_sensitivity, primary_aim_table_cre_2, by = "Category")
+big_sensitivity
+
+setwd("D:/HannahNicoll/Tibbles")
+write.table(big_sensitivity, file = "Primary aim sensitivity table 0207", sep = ",", quote = FALSE, row.names = FALSE)
+
+```
+
+#sensitivity table for secondary aim - make missing indicator comparison 
+```{r missing indicator comparison}
+
+fullMI_summary <- summary(coxph(Surv(days_to_event, death_event) ~ CKD_category + DM_category + Hb_category + alb_category + hyp_category + age_category + Phy_Sex, data = categorised))
+fullMI_coef <- fullMI_summary$coefficients
+fullMI_ci <- exp(confint(coxph(Surv(days_to_event, death_event) ~ CKD_category + DM_category + Hb_category + alb_category + hyp_category + age_category + Phy_Sex, data = categorised)))
+fullMI <- cbind(fullMI_coef, fullMI_ci)
+fullMI <- fullMI %>% 
+  subset(select = c("exp(coef)", "Pr(>|z|)", "2.5 %", "97.5 %"))
+colnames(fullMI)[colnames(fullMI) == "exp(coef)"] <- "estimate"
+colnames(fullMI)[colnames(fullMI) == "Pr(>|z|)"] <- "p.value"
+colnames(fullMI)[colnames(fullMI) == "2.5 %"] <- "conf.low"
+colnames(fullMI)[colnames(fullMI) == "97.5 %"] <- "conf.high"
+
+fullMI_table <- as.data.frame(fullMI)
+fullMI_table <- fullMI_table %>% 
+  fmutate(across(c("estimate", "conf.low", "conf.high"), round, 2)) %>%   
+  mutate(p.value = case_when(
+    p.value < .001 ~ "**", 
+    p.value < .01 ~ "*", 
+    TRUE ~ str_pad(as.character(round(p.value, 2)),width=4,pad="0",side="right"))) %>% 
+  mutate("HR (95% CI)" = paste0(estimate, " (", conf.low, "-", conf.high,")", p.value))
+
+```
+
+```{r make table for secondary aim for missing indicator section}
+#need an extra row for the extra DM category created
+extra_column <- (matrix(c("N/A", "N/A", "N/A", "N/A", "N/A"), ncol = 5))
+colnames(extra_column) <- c("estimate", "p.value", "conf.low", "conf.high", "HR (95% CI)")
+rownames(extra_column) <- c("DM diagnosis")
+extra_column <- as.data.frame(extra_column)
+
+fullMI_table <- rbind(fullMI_table, extra_column)
+
+fullMI_table <- fullMI_table %>% 
+  mutate(Category = c("3a", "3b", "4", "5", "No eGFR data", "DM controlled", "DM uncontrolled", "No HbA1c data", "Low Hb", "No Hb data", "Low alb", "No alb data", "High SBP", "Low SBP", "No SBP data",  "70-79", "80-89", "Over 90", "Under 60","Male", "DM diagnosis"), .before = estimate) %>% 
+  arrange(factor(Category, levels = c("3a", "3b", "4", "5", "No eGFR data", "DM controlled", "DM uncontrolled", "DM diagnosis", "No HbA1c data", "Low Hb", "No Hb data", "Low alb", "No alb data", "High SBP", "Low SBP", "No SBP data", "Under 60", "70-79", "80-89", "Over 90", "Male"))) %>% 
+  mutate(Predictor = c("eGFR", "", "", "", "", "DM", "", "", "", "Hb", "", "Alb", "", "SBP", "", "", "Age", "", "", "", "Sex")) %>% 
+  subset(select = c("Predictor", "Category", "HR (95% CI)"))
+secondary_aim_table_MI <- fullMI_table
+
+```
+
+```{r make big sensitivity analysis table for secondary aim}
+big_sensitivity2 <- left_join(secondary_aim_table_MI, secondary_aim_table_CCA, by = "Category")
+big_sensitivity2 <- left_join(big_sensitivity2, secondary_aim_table_2020, by = "Category")
+
+setwd("D:/HannahNicoll/Tibbles")
+write.table(big_sensitivity2, file = "Secondary aim sensitivity table 0207", sep = ",", quote = FALSE, row.names = FALSE)
+
+```
