@@ -1,0 +1,284 @@
+---
+title: "Create eGFR variable, categorise, and save dataset"
+output: html_document
+date: "2026-03-05"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(dplyr)
+library(tidyverse)
+library(lubridate)
+setwd("D:/HannahNicoll")
+```
+
+
+```{r get mortality dataset}
+
+library(readxl)
+setwd("D:/HannahNicoll/202605_Borut")
+mortality <- read_excel("static_baseline_mortality_new.xlsx") 
+mortality_csv <- read.csv("static_baseline_mortality.csv")
+library(tidyverse)
+library(lubridate)
+
+
+summary(mortality$patid)
+mortality$date <- as.Date(mortality$date)
+
+```
+
+
+```{r get creatinine dataset}
+setwd("D:/HannahNicoll/202605_Borut")
+library(arrow)
+creatinine <- read_parquet("cre.parquet")
+hist(creatinine$value, xlim = c(0, 1000), breaks = 20000)
+
+```
+so what steps do I need to take to create a creatinine baseline value?
+- select all creatinine values for patids who are alive during 2017
+- create a new dataset for the alive patients
+- group by patid
+- select the max two values
+- identify if the max two values are both within one/two years of the baseline, and delete if not possible
+- create a binary variable for missing one creatinine value
+- create a binary variable for missing both creatinine values (this does beg the question - what should I do if someone is missing one not both?)
+- identify the best of the two eGFR values
+- group patients on normal, CKD levels 3-5, missing both 
+
+```{r identify patids} 
+
+mortality$regenddate <- as.Date(mortality$regenddate)
+ 
+#subset to just useful information
+mortality_baseline <- mortality %>% 
+  subset(select = c(patid, hfd_date, days_to_event, regenddate, cprd_ddate, Phy_Sex, yob))
+
+```
+
+``` {r identify creatinine patients with the required patids}
+library(bit64)
+library(SSBtools)
+creatinine2 <- creatinine
+creatinine <- creatinine %>% 
+  mutate(patid_64 = patid) %>% 
+  mutate(patid = convert_integer64(patid, to_integer = "never", always_character = TRUE))
+
+
+
+mortality_baseline$patid <- as.character(mortality_baseline$patid)
+head(mortality_baseline$patid)
+
+#join datasets by patid 
+
+creatinine_dates <- left_join(mortality_baseline, creatinine, by = "patid") # I think this is what I want to do actually - 
+```
+
+
+``` {r select creatinine values within the catchment period}
+creatinine_dates <- creatinine_dates %>% 
+  mutate(obsdate_date_only = as.Date(obsdate)) %>% #check if this is needed, and what this does when I have the new dataset 
+  mutate(obsdate_in_catchment = dplyr::if_else(obsdate_date_only >= as.Date("2015-07-01") & obsdate_date_only <= as.Date("2017-01-01"),
+                                               1,
+                                               0,
+                                               missing = 0)) 
+
+creatinine_dates <- creatinine_dates %>% 
+  filter(obsdate_in_catchment == 1) #this should be fine as I'll join up this dataset with the other dataset, so if I lose patids in this they'll appear later on. NEED TO CHECK THIS THOUGH!!!
+creatinine_catchment <- creatinine_dates 
+```
+
+
+##Processing for eGFR
+
+```{r exclude outlying creatinine values}
+hist(creatinine_catchment$value, xlim = c(0, 500), breaks = 150) # work out where the outliers are
+
+creatinine_catchment %>% 
+  mutate(value = dplyr::if_else((value > 1 & value < 1000), 
+                 value, 
+                 NA)) %>% 
+  filter(is.na(value) == TRUE) %>% 
+  nrow() #check how many to see if this is reasonable
+
+creatinine_catchment <- creatinine_catchment %>% 
+  subset(value >1 & value < 1000) #check row difference is expected
+
+```
+
+```{r select most recent and second most recent creatinine values per patid}
+
+#select earliest creatinine value
+creatinine_eGFR <- creatinine_catchment %>% 
+  group_by(patid) %>% 
+  mutate(recent_obsdate = max(obsdate)) %>% 
+  mutate(recent_binary = dplyr::if_else(recent_obsdate == obsdate,
+                        1,
+                        0)) %>% 
+  mutate(recent_value = dplyr::if_else(recent_binary == 1, 
+                                               value,
+                                               NA))
+
+creatinine_eGFR_recent <- creatinine_eGFR %>% 
+  filter(recent_binary == 1) %>%  #only the most recent obsdates included
+  arrange(recent_value) %>% 
+  distinct(patid, .keep_all = TRUE)
+
+creatinine_eGFR_2 <- creatinine_eGFR %>% 
+  filter(recent_binary == 0) %>% 
+  group_by(patid) %>% 
+  mutate(second_recent_obsdate = max(obsdate)) %>% 
+  mutate(second_recent_binary = dplyr::if_else(second_recent_obsdate == obsdate,
+                        1,
+                        0 )) %>% 
+  mutate(second_recent_value = dplyr::if_else(second_recent_binary == 1,
+                                                      value,
+                                                      NA)) %>% 
+  subset(select = c(patid, second_recent_obsdate, second_recent_binary, second_recent_value)) %>% 
+    filter(second_recent_binary == 1) %>% 
+  arrange(second_recent_value) %>% #keeping the lower cre value - check this with Duncan
+  distinct(patid, .keep_all = TRUE) #check this code - I'm not sure I've handled the duplicates particularly well
+  
+
+creatinine_eGFR_recent_both <- left_join(creatinine_eGFR_recent, creatinine_eGFR_2, by = c("patid"))
+
+
+
+```
+
+```{r make one creatinine dataset}
+
+mortality_catchment <- mortality_baseline #artifact of old code, don't want to mess anything up. If I am going to exclude based on registration date (I very much may) this is the place to do that 
+
+
+creatinine_small_both <- creatinine_eGFR_recent_both %>% 
+  subset(select = c(patid, obsdate_date_only, recent_obsdate, recent_binary, recent_value, second_recent_obsdate, second_recent_binary, second_recent_value)) #should change this to recent_binary, recent_value etc.
+creatinine_final <- left_join(mortality_catchment, creatinine_small_both, by = c("patid")) #so this should keep all observations in x
+creatinine_final_full <- full_join(mortality_catchment, creatinine_small_both, by = c("patid")) #check to see if this is the same 
+
+creatinine_final <- creatinine_final %>% 
+  mutate(missing_both_binary = dplyr::if_else((is.na(recent_binary)) == TRUE, #missing both creatinine values
+                                         1,
+                                         0)) %>% 
+  mutate(missing_second_binary = dplyr::if_else((recent_binary == 1 & (is.na(second_recent_binary)) == TRUE), #has one but not two creatinine values
+                                                1,
+                                                0))
+
+creatinine_final %>% 
+  filter(missing_both_binary == 1) %>% 
+  nrow() # work out if number of missing variables seems reasonable 4120
+
+creatinine_final %>% 
+  filter(missing_second_binary == 1) %>% 
+  nrow() #15951
+
+#creatinine_final has first and second most recent values, dates of those values, patid, etc.  
+```
+
+
+```{r create mortality subsetted dataset}
+#need to merge creatinine_final with the necessary columns from mortality so will select the necessary columns from mortality for eGFR calculation
+
+#what do I need from mortality - I need age and sex 
+
+
+
+creatinine_final$age_in_2017 <- as.character(2017 - as.numeric(creatinine_final$yob) - 1)
+creatinine_final <- creatinine_final %>% 
+  mutate(age_in_2017 = as.numeric(age_in_2017)) %>% 
+  mutate(age_in_2017 = dplyr::if_else((age_in_2017 > 17 & age_in_2017 < 110), 
+                 age_in_2017, 
+                 NA))
+
+
+mortality_demog_final_categorised <- mortality_catchment %>% 
+  subset(select = c(patid, hfd_date, yob, Phy_Sex))
+save(mortality_demog_final_categorised, file = "mortality_demog_categorised.RData")
+
+```
+
+
+```{r create eGFR variable}
+#merge datasets #why do I need to do this? I thought I'd already got most of this done
+#eGFR <- left_join(creatinine_final, mortality_demog_final, by = c("patid")) # may include the other date with this if needs be (in mortality)
+#Don't think I need to do this part 
+
+#convert from creatinine e.
+
+creatinine_final <- creatinine_final %>% 
+  mutate(age_for_eGFR = case_when(obsdate_date_only < as.Date("2016-01-01") ~ age_in_2017 - 1.5, 
+                                  obsdate_date_only >= as.Date("2016-01-01") ~ age_in_2017 - 0.5,
+                                                                    )) #check this greatly 
+eGFR <- creatinine_final %>% 
+  mutate(eGFR_recent = 175 * (recent_value/88.4)^-1.154 * age_for_eGFR^-0.203 * ifelse(Phy_Sex == "Female", 0.742, 1)) %>% 
+  mutate(eGFR_second_recent = 175 * (second_recent_value/88.4)^-1.154 * age_for_eGFR^-0.203 * ifelse(Phy_Sex == "Female", 0.742, 1)) #check these with Duncan - I'm not sold on this equation
+
+
+
+```
+
+```{r best of two eGFRs}
+
+eGFR_main <- eGFR %>% 
+  mutate(eGFR_best = if_else(eGFR_recent >= eGFR_second_recent | missing_second_binary == 1,
+                             eGFR_recent,
+                             eGFR_second_recent,
+                             missing = NA))
+
+```
+
+```{r categorise eGFR}
+#assigning the eGFR values to a category based on CKD scores
+eGFR_main <- eGFR_main %>% 
+  mutate(CKD_category = case_when(eGFR_best >= 60 ~ "Normal",
+                                  (eGFR_best >= 45 & eGFR_best < 60 ~ "3a"),
+                                  (eGFR_best >= 30 & eGFR_best < 45 ~ "3b"),
+                                  (eGFR_best >= 15 & eGFR_best < 30 ~ "4"),
+                                  eGFR_best < 15 ~ "5",
+                                  missing_both_binary == 1 ~ "No data"))
+
+
+eGFR_small <- eGFR_main %>% 
+  subset(select = c(patid, hfd_date, CKD_category, age_in_2017, eGFR_best, eGFR_recent, eGFR_second_recent, missing_both_binary, missing_second_binary)) 
+eGFR_small_long <- eGFR_small
+save(eGFR_small_long, file = "eGFR_small_long.RData")
+```
+
+
+```{r creatinine sensitivity version}
+#if there are not two values within the 18 month period, the individual is assigned to no data.
+#this is for a possible sensitivity test
+
+
+eGFR_sensitivity <- eGFR_main %>% 
+  mutate(eGFR_best_sensitivity = case_when(missing_both_binary == 1 ~ NA,
+                                           missing_second_binary == 1 ~ NA,
+                                           missing_second_binary == 0 ~ eGFR_best)) %>% 
+  mutate(CKD_category_sensitivity = case_when(eGFR_best_sensitivity >= 60 ~ "Normal",
+                                  (eGFR_best_sensitivity >= 45 & eGFR_best_sensitivity < 60 ~ "3a"),
+                                  (eGFR_best_sensitivity >= 30 & eGFR_best_sensitivity < 45 ~ "3b"),
+                                  (eGFR_best_sensitivity >= 15 & eGFR_best_sensitivity < 30 ~ "4"),
+                                  eGFR_best_sensitivity < 15 ~ "5",
+                                  is.na(eGFR_best_sensitivity) == TRUE ~ "No data"))
+                                       
+
+#eGFR_sensitivity <- eGFR %>% 
+#  mutate(eGFR_best = if_else(eGFR_recent > eGFR_second_recent & missing_second_binary == 0,
+#                             eGFR_recent,
+#                             eGFR_second_recent,
+#                             missing = NA))
+##eGFR_sensitivity <- eGFR_sensitivity %>% 
+#  mutate(CKD_category = case_when(eGFR_best >= 60 ~ "Normal",
+#                                  (eGFR_best >= 45 & eGFR_best < 60 ~ "3a"),
+#                                  (eGFR_best >= 30 & eGFR_best < 45 ~ "3b"),
+#                                  (eGFR_best >= 15 & eGFR_best < 30 ~ "4"),
+#                                  eGFR_best < 15 ~ "5",
+#                                  missing_both_binary == 1 ~ "No data",
+#                                  missing_second_binary == 1 ~ "No data"))
+head(eGFR_sensitivity)
+eGFR_small_sensitivity_long <- eGFR_sensitivity %>% 
+  subset(select = c(patid, hfd_date, CKD_category_sensitivity, eGFR_best_sensitivity, age_in_2017, eGFR_recent, eGFR_second_recent, missing_both_binary, missing_second_binary))
+save(eGFR_small_sensitivity_long, file = "eGFR_small_sensitivity_long.RData")
+
+```
