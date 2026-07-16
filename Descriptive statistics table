@@ -1,0 +1,422 @@
+---
+title: "Descriptive Statistics"
+output: html_document
+date: "2026-03-29"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+---
+title: "Descriptive statistics"
+output: html_document
+date: "2026-03-13"
+---
+
+```{r get data}
+getwd()
+#setwd("D:/FirstnameLastname/202605")
+#mortality <- read.csv("static_baseline_mortality.csv") #for categorisating graphs 
+
+```
+
+```{r get RData files}
+load("categorised.RData")
+```
+
+```{r load libraries}
+library(tidyverse)
+
+```
+
+
+##Tables with one variable
+
+```{r 1 year survival variable}
+
+categorised_descriptive <- categorised %>% 
+  mutate(left_2018 = dplyr::if_else(days_to_event < 366, 
+                                          1,
+                                          0)) %>%  #those who left the dataset in 2018
+  mutate(died_2018 = dplyr::if_else(left_2018 == 1 & death_event == 1,
+                                        1,
+                                        0)) %>% #those who died in 2018
+  mutate(censored_2018 = dplyr::if_else(left_2018 == 1 & death_event == 0,
+                                        1,
+                                        0)) %>%  #those who were censored in 2018
+  mutate(survival_2018 = dplyr::if_else(died_2018 == 0,
+                                        1, 
+                                        0)) #those who survived in 2018
+
+table(categorised_descriptive$censored_2018) #3769 - seems about right
+table(categorised_descriptive$died_2018) #11139
+table(categorised_descriptive$left_2018) #14908 - that's about right
+
+
+
+categorised_descriptive_subset <- categorised_descriptive %>% 
+  filter(censored_2018 == 0) 
+```
+
+```{r 5 year survival variable}
+categorised_descriptive <- categorised_descriptive %>% 
+  mutate(died_2022 = dplyr::if_else(regenddate < as.Date("2022-01-01") & death_event == 1, 
+                                   1,
+                                   0)) %>% 
+  mutate(survival_2022 = dplyr::if_else(died_2022 == 0,
+                                        1,
+                                        0))
+
+```
+
+```{r age}
+prop_cat_age <- function(x) {
+  total_row <- nrow(categorised_descriptive)
+  num <- categorised_descriptive %>% 
+    filter(age_category == x) %>% 
+    nrow()
+  perc <- round(((num / total_row) * 100), digits = 2)
+  paste(perc, "(", num, ")")
+}
+prop_sur_age <- function(x) { #function to identify proportion of 1-year survival within each eGFR category - edit to remove those who were censored
+  total_cat <- categorised_descriptive_subset %>% 
+    filter(age_category == x) %>% 
+    nrow()
+  num <- categorised_descriptive_subset %>% 
+    filter(age_category == x & survival_2018 == 1) %>% #with 1 corresponding to survival
+    nrow()
+  perc <- round(((num / total_cat) * 100), digits = 2)
+  paste(perc, "(", num, ")")
+}
+prop_sur_age_2022 <- function(x) { #function to identify proportion of 5-year survival within each eGFR category
+  total_cat <- categorised_descriptive %>% 
+    filter(age_category == x) %>% 
+    nrow()
+  num <- categorised_descriptive %>% 
+    filter(age_category == x & survival_2022 == 1) %>% #with 1 corresponding to survival
+    nrow()
+  perc <- round(((num / total_cat) * 100), digits = 2)
+  paste(perc, "(", num, ")")
+}
+
+#tibble
+tibble_age <- tibble(
+  Category = c("Under 60", "60-69", "70-79", "80-89", "Over 90"),
+  "Percentage of population (number of individuals)" = mapply(prop_cat_age, c("Under 60", "60-69", "70-79", "80-89", "Over 90")),
+  "Percentage 1-year survival (number of individuals)" = mapply(prop_sur_age, c("Under 60", "60-69", "70-79", "80-89", "Over 90")),
+  #"Percentage 5-year survival (number of individuals)" = mapply(prop_sur_age_2022, c("Under 60", "60-69", "70-79", "80-89", "OVer 90")),
+)
+tibble_age
+
+```
+
+```{r sex}
+
+prop_cat_sex <- function(x) {
+  total_row <- nrow(categorised_descriptive)
+  num <- categorised_descriptive %>% 
+    filter(Phy_Sex == x) %>% 
+    nrow()
+  perc <- round(((num / total_row) * 100), digits = 2)
+  paste(perc, "(", num, ")")
+}
+prop_sur_sex <- function(x) { #function to identify proportion of 1-year survival within each eGFR category
+  total_cat <- categorised_descriptive_subset %>% 
+    filter(Phy_Sex == x) %>% 
+    nrow()
+  num <- categorised_descriptive_subset %>% 
+    filter(Phy_Sex == x & survival_2018 == 1) %>% #with 1 corresponding to survival
+    nrow()
+  perc <- round(((num / total_cat) * 100), digits = 2)
+  paste(perc, "(", num, ")")
+}
+prop_sur_sex_2022 <- function(x) { #function to identify proportion of 5-year survival within each eGFR category
+  total_cat <- categorised_descriptive %>% 
+    filter(Phy_Sex == x) %>% 
+    nrow()
+  num <- categorised_descriptive %>% 
+    filter(Phy_Sex == x & survival_2022 == 1) %>% #with 1 corresponding to survival
+    nrow()
+  perc <- round(((num / total_cat) * 100), digits = 2)
+  paste(perc, "(", num, ")")
+}
+
+tibble_sex <- tibble(
+  Category = c("Male", "Female"),
+  "Percentage of population (number of individuals)" = mapply(prop_cat_sex, c("Male", "Female")),
+  "Percentage 1-year survival (number of individuals)" = mapply(prop_sur_sex, c("Male", "Female")),
+  #"Percentage 5-year survival (number of individuals)" = mapply(prop_sur_sex_2022, c("Male", "Female")),
+)
+tibble_sex
+
+```
+
+```{r eGFR}
+
+#I want a table of: 1: categories, 2 proportions of categories, 3 - proportion survival at 1 year
+#create eGFR specific functions 
+prop_cat_eGFR <- function(x) { #function to identify proportion belonging to each eGFR category
+  total_row <- nrow(categorised_descriptive)
+  num <- categorised_descriptive %>% 
+    filter(CKD_category == x) %>% 
+    nrow()
+  perc <- round(((num / total_row) * 100), digits = 2)
+  paste(perc, "(", num, ")")
+}
+prop_sur_eGFR <- function(x) { #function to identify proportion of 1-year survival within each eGFR category
+  total_cat <- categorised_descriptive_subset %>% 
+    filter(CKD_category == x) %>% 
+    nrow()
+  num <- categorised_descriptive_subset %>% 
+    filter(CKD_category == x & survival_2018 == 1) %>% #with 1 corresponding to survival
+    nrow()
+  perc <- round(((num / total_cat) * 100), digits = 2)
+  paste(perc, "(", num, ")")
+}
+prop_sur_eGFR_2022 <- function(x) { #function to identify proportion of 5-year survival within each eGFR category
+  total_cat <- categorised_descriptive %>% 
+    filter(CKD_category == x) %>% 
+    nrow()
+  num <- categorised_descriptive %>% 
+    filter(CKD_category == x & survival_2022 == 1) %>% #with 1 corresponding to survival
+    nrow()
+  perc <- round(((num / total_cat) * 100), digits = 2)
+  paste(perc, "(", num, ")")
+}
+#make tibble 
+tibble_eGFR <- tibble(
+  Category = c("Normal", "3a", "3b", "4", "5", "No data"),
+  "Percentage of population (number of individuals)" = mapply(prop_cat_eGFR, c("Normal", "3a", "3b", "4", "5", "No data")),
+  "Percentage 1-year survival (number of individuals)" = mapply(prop_sur_eGFR, c("Normal", "3a", "3b", "4", "5", "No data")),
+  #"Percentage 5-year survival (number of individuals)" = mapply(prop_sur_eGFR_2022, c("Normal", "3a", "3b", "4", "5", "No data")),
+)
+tibble_eGFR
+
+```
+```{r diabetes}
+#I want a table of: 1: categories, 2 proportions of categories, 3 - proportion survival at 1 year
+#create DM specific functions 
+prop_cat_DM <- function(x) { #function to identify proportion belonging to each DM category
+  total_row <- nrow(categorised_descriptive)
+  num <- categorised_descriptive %>% 
+    filter(DM_category == x) %>% 
+    nrow()
+  perc <- round(((num / total_row) * 100), digits = 2)
+  paste(perc, "(", num, ")")
+}
+prop_sur_DM <- function(x) { #function to identify proportion of 1-year survival within each DM category
+  total_cat <- categorised_descriptive_subset %>% 
+    filter(DM_category == x) %>% 
+    nrow()
+  num <- categorised_descriptive_subset %>% 
+    filter(DM_category == x & survival_2018 == 1) %>% #with 1 corresponding to survival
+    nrow()
+  perc <- round(((num / total_cat) * 100), digits = 2)
+  paste(perc, "(", num, ")")
+}
+prop_sur_DM_2022 <- function(x) { #function to identify proportion of 1-year survival within each DM category
+  total_cat <- categorised_descriptive %>% 
+    filter(DM_category == x) %>% 
+    nrow()
+  num <- categorised_descriptive %>% 
+    filter(DM_category == x & survival_2022 == 1) %>% #with 1 corresponding to survival
+    nrow()
+  perc <- round(((num / total_cat) * 100), digits = 2)
+  paste(perc, "(", num, ")")
+}
+#make tibble 
+tibble_DM <- tibble(
+  Category = c("DM controlled", "DM uncontrolled", "DM no data", "No diagnosis"),
+  "Percentage of population (number of individuals)" = mapply(prop_cat_DM, c("DM_controlled", "DM_uncontrolled", "DM no data", "No_diagnosis")),
+  "Percentage 1-year survival (number of individuals)" = mapply(prop_sur_DM, c("DM_controlled", "DM_uncontrolled", "DM no data", "No_diagnosis"))
+ # "Percentage 5-year survival (number of individuals)" = mapply(prop_sur_DM_2022, c("DM_controlled", "DM_uncontrolled", "DM no data", "No_diagnosis"))
+)
+tibble_DM
+```
+
+```{r Hb}
+
+#I want a table of: 1: categories, 2 proportions of categories, 3 - proportion survival at 1 year
+#create Hb specific functions 
+prop_cat_Hb <- function(x) { #function to identify proportion belonging to each Hb category
+  total_row <- nrow(categorised_descriptive)
+  num <- categorised_descriptive %>% 
+    filter(Hb_category == x) %>% 
+    nrow()
+  perc <- round(((num / total_row) * 100), digits = 2)
+  paste(perc, "(", num, ")")
+}
+prop_sur_Hb <- function(x) { #function to identify proportion of 1-year survival within each Hb category
+  total_cat <- categorised_descriptive_subset %>% 
+    filter(Hb_category == x) %>% 
+    nrow()
+  num <- categorised_descriptive_subset %>% 
+    filter(Hb_category == x & survival_2018 == 1) %>% #with 1 corresponding to survival
+    nrow()
+  perc <- round(((num / total_cat) * 100), digits = 2)
+  paste(perc, "(", num, ")")
+}
+prop_sur_Hb_2022 <- function(x) { #function to identify proportion of 1-year survival within each Hb category
+  total_cat <- categorised_descriptive %>% 
+    filter(Hb_category == x) %>% 
+    nrow()
+  num <- categorised_descriptive %>% 
+    filter(Hb_category == x & survival_2022 == 1) %>% #with 1 corresponding to survival
+    nrow()
+  perc <- round(((num / total_cat) * 100), digits = 2)
+  paste(perc, "(", num, ")")
+}
+#make tibble 
+tibble_Hb <- tibble(
+  Category = c("Normal", "Low", "No data"),
+  "Percentage of population (number of individuals)" = mapply(prop_cat_Hb, c("Normal", "Low", "No data")),
+  "Percentage 1-year survival (number of individuals)" = mapply(prop_sur_Hb, c("Normal", "Low", "No data")),
+ # "Percentage 5-year survival (number of individuals)" = mapply(prop_sur_Hb_2022, c("Normal", "Low", "No data"))
+)
+tibble_Hb
+
+```
+
+```{r Alb}
+
+#I want a table of: 1: categories, 2 proportions of categories, 3 - proportion survival at 1 year
+#create Alb specific functions 
+prop_cat_Alb <- function(x) { #function to identify proportion belonging to each Alb category
+  total_row <- nrow(categorised_descriptive)
+  num <- categorised_descriptive %>% 
+    filter(alb_category == x) %>% 
+    nrow()
+  perc <- round(((num / total_row) * 100), digits = 2)
+  paste(perc, "(", num, ")")
+}
+prop_sur_Alb <- function(x) { #function to identify proportion of 1-year survival within each Alb category
+  total_cat <- categorised_descriptive_subset %>% 
+    filter(alb_category == x) %>% #may want to change this to capitals - it isn't consistnent, would need to change categorised.RData
+    nrow()
+  num <- categorised_descriptive_subset %>% 
+    filter(alb_category == x & survival_2018 == 1) %>% #with 1 corresponding to survival
+    nrow()
+  perc <- round(((num / total_cat) * 100), digits = 2)
+  paste(perc, "(", num, ")")
+}
+prop_sur_Alb_2022 <- function(x) { #function to identify proportion of 1-year survival within each Alb category
+  total_cat <- categorised_descriptive %>% 
+    filter(alb_category == x) %>% #may want to change this to capitals - it isn't consistnent, would need to change categorised.RData
+    nrow()
+  num <- categorised_descriptive %>% 
+    filter(alb_category == x & survival_2022 == 1) %>% #with 1 corresponding to survival
+    nrow()
+  perc <- round(((num / total_cat) * 100), digits = 2)
+  paste(perc, "(", num, ")")
+}
+#make tibble 
+tibble_Alb <- tibble(
+  Category = c("Normal", "Low", "No data"),
+  "Percentage of population (number of individuals)" = mapply(prop_cat_Alb, c("Normal", "Low", "No data")),
+  "Percentage 1-year survival (number of individuals)" = mapply(prop_sur_Alb, c("Normal", "Low", "No data")),
+  #"Percentage 5-year survival (number of individuals)" = mapply(prop_sur_Alb_2022, c("Normal", "Low", "No data")),
+)
+tibble_Alb
+```
+
+```{r Hypertension}
+
+#I want a table of: 1: categories, 2 proportions of categories, 3 - proportion survival at 1 year
+#create Hyp specific functions 
+prop_cat_Hyp <- function(x) { #function to identify proportion belonging to each Hyp category
+  total_row <- nrow(categorised_descriptive)
+  num <- categorised_descriptive %>% 
+    filter(hyp_category == x) %>% #changed these to hyp_category_low, if I decide to go through with the changes change back!
+    nrow()
+   perc <- round(((num / total_row) * 100), digits = 2)
+  paste(perc, "(", num, ")")
+}
+prop_sur_Hyp <- function(x) { #function to identify proportion of 1-year survival within each Hyp category
+  total_cat <- categorised_descriptive_subset %>% 
+    filter(hyp_category == x) %>% 
+    nrow()
+  num <- categorised_descriptive_subset %>% 
+    filter(hyp_category == x & survival_2018 == 1) %>% #with 1 corresponding to survival
+    nrow()
+  perc <- round(((num / total_cat) * 100), digits = 2)
+  paste(perc, "(", num, ")")
+}
+prop_sur_Hyp_2022 <- function(x) { #function to identify proportion of 1-year survival within each Hyp category
+  total_cat <- categorised_descriptive %>% 
+    filter(hyp_category == x) %>% 
+    nrow()
+  num <- categorised_descriptive %>% 
+    filter(hyp_category == x & survival_2022 == 1) %>% #with 1 corresponding to survival
+    nrow()
+  perc <- round(((num / total_cat) * 100), digits = 2)
+  paste(perc, "(", num, ")")
+}
+
+#make tibble 
+tibble_Hyp <- tibble(
+  Category = c("Normal", "High",  "Low", "No data"),
+  "Percentage of population (number of individuals)" = mapply(prop_cat_Hyp, c("Normal", "High", "Low", "No data")),
+  "Percentage 1-year survival (number of individuals)" = mapply(prop_sur_Hyp, c("Normal", "High", "Low", "No data")),
+  #"Percentage 5-year survival (number of individuals)" = mapply(prop_sur_Hyp_2022, c("Normal", "High", "No data"))
+)
+tibble_Hyp
+
+```
+
+```{r BMI}
+
+#I want a table of: 1: categories, 2 proportions of categories, 3 - proportion survival at 1 year
+#create BMI specific functions 
+prop_cat_BMI <- function(x) { #function to identify proportion belonging to each BMI category
+  total_row <- nrow(categorised_descriptive)
+  num <- categorised_descriptive %>% 
+    filter(BMI_category == x) %>% 
+    nrow()
+  perc <- round(((num / total_row) * 100), digits = 2)
+  paste(perc, "(", num, ")")
+}
+prop_sur_BMI <- function(x) { #function to identify proportion of 1-year survival within each BMI category
+  total_cat <- categorised_descriptive_subset %>% 
+    filter(BMI_category == x) %>% 
+    nrow()
+  num <- categorised_descriptive_subset %>% 
+    filter(BMI_category == x & survival_2018 == 1) %>% #with 1 corresponding to survival
+    nrow()
+  perc <- round(((num / total_cat) * 100), digits = 2)
+  paste(perc, "(", num, ")")
+}
+prop_sur_BMI_2022 <- function(x) { #function to identify proportion of 1-year survival within each BMI category
+  total_cat <- categorised_descriptive %>% 
+    filter(BMI_category == x) %>% 
+    nrow()
+  num <- categorised_descriptive %>% 
+    filter(BMI_category == x & survival_2022 == 1) %>% #with 1 corresponding to survival
+    nrow()
+  perc <- round(((num / total_cat) * 100), digits = 2)
+  paste(perc, "(", num, ")")
+}
+#make tibble 
+tibble_BMI <- tibble(
+  Category = c("Underweight", "Normal weight", "Overweight", "Obesity I", "Obesity II", "Obesity III", "No data"),
+  "Percentage of population (number of individuals)" = mapply(prop_cat_BMI, c("Underweight", "Normal weight", "Overweight", "Obesity 1", "Obesity 2", "Obesity 3", "No data")),
+  "Percentage 1-year survival (number of individuals)" = mapply(prop_sur_BMI, c("Underweight", "Normal weight", "Overweight", "Obesity 1", "Obesity 2", "Obesity 3", "No data")),
+  #"Percentage 5-year survival (number of individuals)" = mapply(prop_sur_BMI_2022, c("Underweight", "Normal weight", "Overweight", "Obesity 1", "Obesity 2", "Obesity 3", "No data"))
+)
+tibble_BMI
+
+```
+```{r big tibble}
+big_tibble <- bind_rows(tibble_age, tibble_sex, tibble_eGFR, tibble_DM, tibble_Hb, tibble_Alb, tibble_Hyp, tibble_BMI)
+big_tibble
+big_tibble <- add_column(big_tibble, 
+           Predictor = c("Age", "", "", "", "", "Sex", "", "eGFR", "", "", "", "", "", "Diabetes", "","", "", "Haemoglobin", "", "", "Albumin", "", "", "Hypertension", "", "", "", "BMI", "", "","", "", "", ""),
+           .before = "Category")
+big_tibble
+```
+
+``` {r export tibbles to csv}
+setwd("D:/FirstnameLastname/Tibbles") #or I should make one big tibble
+write.table(big_tibble, file = "Descriptive statistics tibble new data", sep = ",", quote = FALSE, row.names = FALSE)
+
+
