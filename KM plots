@@ -1,5 +1,5 @@
 getwd()
-setwd("D:/HannahNicoll")
+setwd("D:/FirstnameLastname")
 load("categorised.RData")
 library(survival)
 library(tidyverse)
@@ -13,7 +13,7 @@ levels(categorised_KM$CKD_category)[levels(categorised_KM$CKD_category) == "Norm
 
 #just eGFR
 
-png(file = "D:/HannahNicoll/PH graphs/eGFRonly.png", width = 901, height = 901, res = 144) 
+png(file = "D:/FirstnameLastname/PH graphs/eGFRonly.png", width = 901, height = 901, res = 144) 
 fit <- survfit(Surv(years_to_event_rough, death_event) ~ CKD_category, data = categorised_KM)
 ggsurvplot(fit, categorised_KM, palette = c("lancet"), conf.int = TRUE, legend.labs = c(">60", "45-59", "30-44", "15-29", "<15", "No data"),
            xlab = "Years")
@@ -21,7 +21,7 @@ dev.off()
 
 #age vs eGFR
 
-png(file = "D:/HannahNicoll/PH graphs/eGFRage.png", width = 901, height = 1117, res = 144)
+png(file = "D:/FirstnameLastname/PH graphs/eGFRage.png", width = 901, height = 1117, res = 144)
 fit <- survfit(Surv(years_to_event_rough, death_event) ~ CKD_category, data = categorised_KM)
 ggsurvplot_facet(fit, categorised_KM, facet.by = ("age_category"), palette = c("lancet"), conf.int = TRUE,
                  nrow = 3, ncol = 2, scales = "free", legend.labs = c( ">60", "45-59", "30-44", "15-29", "<15", "No data"),
@@ -33,7 +33,7 @@ dev.off()
 
 
 #DM survival per age                                              
-png(file = "D:/HannahNicoll/PH graphs/DMage.png", width = 901, height = 1117, units = "px", res = 144)
+png(file = "D:/FirstnameLastname/PH graphs/DMage.png", width = 901, height = 1117, units = "px", res = 144)
 fit_DM_age <- survfit(Surv(years_to_event_rough, death_event) ~ DM_category, data = categorised_KM)
 ggsurvplot_facet(fit_DM_age, categorised_KM, facet.by = ("age_category"), palette = c("lancet"), conf.int = TRUE, 
                  nrow = 3, ncol = 2, scales = "free", legend.labs = c("DM no test", "Well controlled DM", "Poorly controlled DM", "No DM"),
@@ -46,7 +46,7 @@ dev.off()
 survfit(Surv(years_to_event_rough, death_event) ~DM_category_2, data = categorised_KM) %>% 
   ggsurvplot(palette = c("lancet"))
 #Haemoglobin per age
-png(file = "D:/HannahNicoll/PH graphs/Hbage.png", width = 901, height = 1117, res = 144)
+png(file = "D:/FirstnameLastname/PH graphs/Hbage.png", width = 901, height = 1117, res = 144)
 fit_Hb_age <- survfit(Surv(years_to_event_rough, death_event) ~ Hb_category, data = categorised_KM)
 ggsurvplot_facet(fit_Hb_age, categorised_KM, facet.by = ("age_category"), palette = c("lancet"), conf.int = TRUE,
                  nrow = 3, ncol = 2, scales = "free",
@@ -58,7 +58,7 @@ dev.off()
 
 
 #albumin survival per age 
-png(file = "D:/HannahNicoll/PH graphs/albage.png", width = 901, height = 1117, res = 144)
+png(file = "D:/FirstnameLastname/PH graphs/albage.png", width = 901, height = 1117, res = 144)
 fit_alb_age <- survfit(Surv(years_to_event_rough, death_event) ~ alb_category, data = categorised_KM)
 ggsurvplot_facet(fit_alb_age, categorised_KM, facet.by = ("age_category"), palette = c("lancet"), conf.int = TRUE,
                  nrow = 3, ncol = 2, scales = "free",
@@ -70,7 +70,7 @@ dev.off()
 
 
 #Hypertension per age
-png(file = "D:/HannahNicoll/PH graphs/hypage.png", width = 901, height = 1117, res = 144)
+png(file = "D:/FirstnameLastname/PH graphs/hypage.png", width = 901, height = 1117, res = 144)
 fit_hyp_age <- survfit(Surv(years_to_event_rough, death_event) ~ hyp_category, data = categorised_KM)
 ggsurvplot_facet(fit_hyp_age, categorised_KM, facet.by = ("age_category"), palette = c("lancet"), conf.int = TRUE,
                  nrow = 3, ncol = 2, scales = "free",
@@ -82,7 +82,7 @@ dev.off()
 
 
 #Obesiter per age
-png(file = "D:/HannahNicoll/PH graphs/BMIage.png", width = 901, height = 1117, res = 144)
+png(file = "D:/FirstnameLastname/PH graphs/BMIage.png", width = 901, height = 1117, res = 144)
 fit_BMI_age <- survfit(Surv(years_to_event_rough, death_event) ~ BMI_category_original, data = categorised_KM)
 ggsurvplot_facet(fit_BMI_age, categorised_KM, facet.by = ("age_category"), palette = c("lancet"), conf.int = TRUE,
                  nrow = 3, ncol = 2, scales = "free",
@@ -98,7 +98,7 @@ categorised_KM_noDM <- categorised_KM %>%
   filter(DM_category == "No_diagnosis")
 table(categorised_KM_noDM$DM_category_2)
 
-png(file = "D:/HannahNicoll/PH graphs/DMeGFRundiagnosed.png", width = 901, height = 901, res = 144)
+png(file = "D:/FirstnameLastname/PH graphs/DMeGFRundiagnosed.png", width = 901, height = 901, res = 144)
 fit_DM_eGFR <- survfit(Surv(years_to_event_rough, death_event) ~ DM_category_2, data = categorised_KM_noDM)
 ggsurvplot(fit_DM_eGFR, categorised_KM_noDM, xlab = "Years", legend.labs = c("Normal HbA1c", "No HbA1c", "Raised HbA1c"), palette = c("lancet"), conf.int = TRUE)
 
