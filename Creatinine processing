@@ -9,14 +9,14 @@ knitr::opts_chunk$set(echo = TRUE)
 library(dplyr)
 library(tidyverse)
 library(lubridate)
-setwd("D:/HannahNicoll")
+setwd("D:/FirstnameLastname")
 ```
 
 
 ```{r get mortality dataset}
 
 library(readxl)
-setwd("D:/HannahNicoll/202605_Borut")
+setwd("D:/FirstnameLastname/202605")
 mortality <- read_excel("static_baseline_mortality_new.xlsx") 
 mortality_csv <- read.csv("static_baseline_mortality.csv")
 library(tidyverse)
@@ -30,7 +30,7 @@ mortality$date <- as.Date(mortality$date)
 
 
 ```{r get creatinine dataset}
-setwd("D:/HannahNicoll/202605_Borut")
+setwd("D:/FirstnameLastname/202605")
 library(arrow)
 creatinine <- read_parquet("cre.parquet")
 hist(creatinine$value, xlim = c(0, 1000), breaks = 20000)
