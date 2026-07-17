@@ -9,35 +9,35 @@ library(survminer)
 
 
 
-png(file = "D:/HannahNicoll/PH graphs/ageSH.png", width = 901, height = 600, res = 144)
+png(file = "D:/FirstnameLastname/PH graphs/ageSH.png", width = 901, height = 600, res = 144)
 plot_schoenfeld(get_schoenfeld(cox.zph(coxph(Surv(days_to_event, death_event) ~ age_category, data = categorised))), sline_se = FALSE)
 dev.off()
 
-png(file = "D:/HannahNicoll/PH graphs/sexSH.png", width = 901, height = 600, res = 144)
+png(file = "D:/FirstnameLastname/PH graphs/sexSH.png", width = 901, height = 600, res = 144)
 plot_schoenfeld(get_schoenfeld(cox.zph(coxph(Surv(days_to_event, death_event) ~ Phy_Sex, data = categorised))), sline_se = FALSE)
 dev.off()
 
-png(file = "D:/HannahNicoll/PH graphs/eGFRSH.png", width = 901, height = 600, res = 144)
+png(file = "D:/FirstnameLastname/PH graphs/eGFRSH.png", width = 901, height = 600, res = 144)
 plot_schoenfeld(get_schoenfeld(cox.zph(coxph(Surv(days_to_event, death_event) ~ CKD_category, data = categorised))), sline_se = FALSE)
 dev.off()
 
-png(file = "D:/HannahNicoll/PH graphs/DMSH.png", width = 901, height = 600, res = 144)
+png(file = "D:/FirstnameLastname/PH graphs/DMSH.png", width = 901, height = 600, res = 144)
 plot_schoenfeld(get_schoenfeld(cox.zph(coxph(Surv(days_to_event, death_event) ~ DM_category, data = categorised))), sline_se = FALSE)
 dev.off()
 
-png(file = "D:/HannahNicoll/PH graphs/HbSH.png", width = 901, height = 600, res = 144)
+png(file = "D:/FirstnameLastname/PH graphs/HbSH.png", width = 901, height = 600, res = 144)
 plot_schoenfeld(get_schoenfeld(cox.zph(coxph(Surv(days_to_event, death_event) ~ Hb_category, data = categorised))), sline_se = FALSE)
 dev.off()
 
-png(file = "D:/HannahNicoll/PH graphs/albSH.png", width = 901, height = 600, res = 144)
+png(file = "D:/FirstnameLastname/PH graphs/albSH.png", width = 901, height = 600, res = 144)
 plot_schoenfeld(get_schoenfeld(cox.zph(coxph(Surv(days_to_event, death_event) ~ alb_category, data = categorised))), sline_se = FALSE)
 dev.off()
 
-png(file = "D:/HannahNicoll/PH graphs/hypSH.png", width = 901, height = 600, res = 144)
+png(file = "D:/FirstnameLastname/PH graphs/hypSH.png", width = 901, height = 600, res = 144)
 plot_schoenfeld(get_schoenfeld(cox.zph(coxph(Surv(days_to_event, death_event) ~ hyp_category, data = categorised))), sline_se = FALSE)
 dev.off()
 
-png(file = "D:/HannahNicoll/PH graphs/BMISH.png", width = 901, height = 600, res = 144)
+png(file = "D:/FirstnameLastname/PH graphs/BMISH.png", width = 901, height = 600, res = 144)
 plot_schoenfeld(get_schoenfeld(cox.zph(coxph(Surv(days_to_event, death_event) ~ BMI_category, data = categorised))), sline_se = FALSE)
 dev.off()
 
