@@ -1,0 +1,431 @@
+---
+title: "1 year survival tables"
+output: html_document
+date: "2026-06-09"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+load("categorised.RData")
+```
+
+```{r survival for primary aim}
+
+ageeGFRsurv <- summary(survfit(Surv(days_to_event, death_event) ~ CKD_category + age_category, data = categorised), times = 365.25)
+ageeGFRsurv
+ageeGFRcols <- lapply(c(1, 3:6, 10, 15:16), function(x) ageeGFRsurv[x])
+ageeGFRtbl <-do.call(data.frame, ageeGFRcols)
+eGFRsurv <- summary(survfit(Surv(days_to_event, death_event) ~ CKD_category, data = categorised), times = 365.25)
+GFRcols <- lapply(c(1, 3:6, 10, 15:16), function(x) eGFRsurv[x])
+GFRtbl <-do.call(data.frame, GFRcols)
+ageeGFRtbl <- rbind(ageeGFRtbl, GFRtbl)
+
+ageeGFRcols
+ageeGFRtbl$surv <- round(ageeGFRtbl$surv, 3) #changed from 3
+ageeGFRtbl$lower <- round(ageeGFRtbl$lower, 3)
+ageeGFRtbl$upper <- round(ageeGFRtbl$upper, 3)
+
+ageeGFRtbl <- ageeGFRtbl %>% 
+  mutate(strata_new = c("eGFR > 60, age 60-69", "eGFR > 60, age 70-79", "eGFR > 60, age 80-89", "eGFR > 60, age over 90", "eGFR > 60, age under 60",
+                        "eGFR 45-59, age 60-69", "eGFR 45-59, age 70-79", "eGFR 45-59, age 80-89", "eGFR 45-59, age over 90", "eGFR 45-59, age under 60",
+                        "eGFR 30-44, age 60-69", "eGFR 30-44, age 70-79", "eGFR 30-44, age 80-89", "eGFR 30-44, age over 90", "eGFR 30-44, age under 60",
+                        "eGFR 15-29, age 60-69", "eGFR 15-29, age 70-79", "eGFR 15-29, age 80-89", "eGFR 15-29, age over 90", "eGFR 15-29, age under 60",
+                        "eGFR < 15, age 60-69", "eGFR < 15, age 70-79", "eGFR < 15, age 80-89", "eGFR < 15, age over 90", "eGFR < 15, age under 60",
+                        "eGFR nd, age 60-69", "eGFR nd, age 70-79", "eGFR nd, age 80-89", "eGFR nd, age over 90", "eGFR nd, age under 60", "eGFR > 60, all ages", "eGFR 45-59, all ages", "eGFR 30-44, all ages", "eGFR 15-29, all ages", "eGFR <15, all ages", "eGFR nd, all ages")) %>% 
+  arrange(factor(strata_new, levels = c("eGFR > 60, age under 60", "eGFR > 60, age 60-69", "eGFR > 60, age 70-79", "eGFR > 60, age 80-89", "eGFR > 60, age over 90", "eGFR > 60, all ages", 
+                        "eGFR 45-59, age under 60", "eGFR 45-59, age 60-69", "eGFR 45-59, age 70-79", "eGFR 45-59, age 80-89", "eGFR 45-59, age over 90", "eGFR 45-59, all ages", 
+                       "eGFR 30-44, age under 60", "eGFR 30-44, age 60-69", "eGFR 30-44, age 70-79", "eGFR 30-44, age 80-89", "eGFR 30-44, age over 90", "eGFR 30-44, all ages",
+                        "eGFR 15-29, age under 60", "eGFR 15-29, age 60-69", "eGFR 15-29, age 70-79", "eGFR 15-29, age 80-89", "eGFR 15-29, age over 90", "eGFR 15-29, all ages",
+                        "eGFR < 15, age under 60", "eGFR < 15, age 60-69", "eGFR < 15, age 70-79", "eGFR < 15, age 80-89", "eGFR < 15, age over 90", "eGFR <15, all ages",
+                          "eGFR nd, age under 60", "eGFR nd, age 60-69", "eGFR nd, age 70-79", "eGFR nd, age 80-89", "eGFR nd, age over 90", "eGFR nd, all ages")))  %>% 
+  mutate(eGFR = c(">60", ">60", ">60", ">60", ">60", ">60",
+                  "45-59", "45-59", "45-59", "45-59", "45-59", "45-59",
+                  "30-44", "30-44", "30-44", "30-44", "30-44", "30-44",
+                  "15-29", "15-29", "15-29", "15-29", "15-29", "15-29",
+                  "<15", "<15", "<15", "<15", "<15", "<15",
+                  "nd", "nd", "nd", "nd", "nd", "nd")) %>% 
+  mutate(age = c("Under 60", "60-69", "70-79", "80-89", "Over 90", "All ages",
+                 "Under 60", "60-69", "70-79", "80-89", "Over 90", "All ages",
+                 "Under 60", "60-69", "70-79", "80-89", "Over 90", "All ages",
+                 "Under 60", "60-69", "70-79", "80-89", "Over 90", "All ages",
+                 "Under 60", "60-69", "70-79", "80-89", "Over 90", "All ages",
+                 "Under 60", "60-69", "70-79", "80-89", "Over 90", "All ages")) %>% 
+  mutate("Survival (CI)" = paste0(surv, " (", lower, "-", upper,")")) %>%   #can add p value in here if needs be - how informative would this be?
+  subset(select = c("Survival (CI)", "strata_new", "age", "eGFR", "strata"))
+
+eGFRnorm <- ageeGFRtbl %>% 
+  filter(eGFR == ">60")
+ageeGFRtbl
+
+eGFRnorm <- eGFRnorm %>% 
+  subset(select = c("Survival (CI)", "age")) %>% 
+  rename(">60" = "Survival (CI)")
+eGFR3a <- ageeGFRtbl %>% 
+  filter(eGFR == "45-59")
+eGFR3a <- eGFR3a %>% 
+   subset(select = c("Survival (CI)", "age")) %>% 
+  rename("45-59" = "Survival (CI)")
+eGFR3b <- ageeGFRtbl %>% 
+  filter(eGFR == "30-44")
+eGFR3b <- eGFR3b %>% 
+   subset(select = c("Survival (CI)", "age")) %>% 
+  rename("30-44" = "Survival (CI)")
+eGFR4 <- ageeGFRtbl %>% 
+  filter(eGFR == "15-29")
+eGFR4 <- eGFR4 %>% 
+   subset(select = c("Survival (CI)", "age")) %>% 
+  rename("15-29" = "Survival (CI)")
+eGFR5 <- ageeGFRtbl %>% 
+  filter(eGFR == "<15")
+eGFR5 <- eGFR5 %>% 
+   subset(select = c("Survival (CI)", "age")) %>% 
+  rename("<15" = "Survival (CI)")
+eGFRnd <- ageeGFRtbl %>% 
+  filter(eGFR == "nd")
+eGFRnd <- eGFRnd %>% 
+   subset(select = c("Survival (CI)", "age")) %>% 
+  rename("No data" = "Survival (CI)")
+
+table <- cbind(eGFRnorm, eGFR3a, eGFR3b, eGFR4, eGFR5, eGFRnd)
+
+ageeGFRsurvival <- table %>% 
+  subset(select = c("age", ">60", "45-59", "30-44", "15-29", "<15", "No data"))
+
+setwd("D:/FirstnameLastname/Tibbles")
+write.table(ageeGFRsurvival, file = "Age eGFR survival table", sep = ",", quote = FALSE, row.names = FALSE)
+
+```
+
+```{r survival for DM}
+
+ageDMsurv <- summary(survfit(Surv(days_to_event, death_event) ~ DM_category + age_category, data = categorised), times = 365.25)
+ageDMcols <- lapply(c(1, 3:6, 10, 15:16), function(x) ageDMsurv[x])
+ageDMtbl <-do.call(data.frame, ageDMcols)
+DMsurv <- summary(survfit(Surv(days_to_event, death_event) ~ DM_category, data = categorised), times = 365.25)
+DMcols <- lapply(c(1, 3:6, 10, 15:16), function(x) DMsurv[x])
+DMtbl <-do.call(data.frame, DMcols)
+ageDMtbl <- rbind(ageDMtbl,DMtbl)
+
+ageDMtbl$surv <- round(ageDMtbl$surv, 3)
+ageDMtbl$lower <- round(ageDMtbl$lower, 3)
+ageDMtbl$upper <- round(ageDMtbl$upper, 3)
+
+ageDMtbl <- ageDMtbl %>% 
+  mutate(strata_new = c("No diagnosis, age 60-69", "No diagnosis, age 70-79", "No diagnosis, age 80-89", "No diagnosis, age over 90", "No diagnosis, age under 60",
+                        "Diagnosis no test, age 60-69", "Diagnosis no test, age 70-79", "Diagnosis no test, age 80-89", "Diagnosis no test, age over 90", "Diagnosis no test, age under 60",
+                        "Controlled DM, age 60-69", "Controlled DM, age 70-79", "Controlled DM, age 80-89", "Controlled DM, age over 90", "Controlled DM, age under 60",
+                        "Uncontrolled DM, age 60-69", "Uncontrolled DM, age 70-79", "Uncontrolled DM, age 80-89", "Uncontrolled DM, age over 90", "Uncontrolled DM, age under 60", "No diagnosis, all ages", "Diagnosis no test, all ages", "Controlled DM, all ages", "Uncontrolled DM, all ages")) %>% 
+  arrange(factor(strata_new, levels = c("No diagnosis, age under 60", "No diagnosis, age 60-69", "No diagnosis, age 70-79", "No diagnosis, age 80-89", "No diagnosis, age over 90", "No diagnosis, all ages",
+                        "Diagnosis no test, age under 60", "Diagnosis no test, age 60-69", "Diagnosis no test, age 70-79", "Diagnosis no test, age 80-89", "Diagnosis no test, age over 90", "Diagnosis no test, all ages",
+                       "Controlled DM, age under 60", "Controlled DM, age 60-69", "Controlled DM, age 70-79", "Controlled DM, age 80-89", "Controlled DM, age over 90", "Controlled DM, all ages",
+                        "Uncontrolled DM, age under 60", "Uncontrolled DM, age 60-69", "Uncontrolled DM, age 70-79", "Uncontrolled DM, age 80-89", "Uncontrolled DM, age over 90", "Uncontrolled DM, all ages"))) %>% 
+  mutate(DM = c("No diagnosis", "No diagnosis", "No diagnosis", "No diagnosis", "No diagnosis", "No diagnosis",
+                  "DM no test", "DM no test", "DM no test", "DM no test", "DM no test", "DM no test",
+                  "DM controlled", "DM controlled", "DM controlled", "DM controlled", "DM controlled", "DM controlled",
+                  "DM uncontrolled", "DM uncontrolled", "DM uncontrolled", "DM uncontrolled", "DM uncontrolled", "DM uncontrolled")) %>% 
+  mutate(age = c("Under 60", "60-69", "70-79", "80-89", "Over 90", "All ages",
+                 "Under 60", "60-69", "70-79", "80-89", "Over 90", "All ages",
+                 "Under 60", "60-69", "70-79", "80-89", "Over 90", "All ages", 
+                 "Under 60", "60-69", "70-79", "80-89", "Over 90", "All ages")) %>% 
+  mutate("Survival (CI)" = paste0(surv, " (", lower, "-", upper,")")) %>% 
+    subset(select = c("Survival (CI)", "strata_new", "age", "DM", "strata"))
+
+
+NoDM <- ageDMtbl %>% 
+  filter(DM == "No diagnosis")
+NoDM <- NoDM %>% 
+  subset(select = c("Survival (CI)", "age")) %>% 
+  rename("No diagnosis" = "Survival (CI)")
+DMdata <- ageDMtbl %>% 
+  filter(DM == "DM no test")
+DMdata <- DMdata %>% 
+   subset(select = c("Survival (CI)", "age")) %>% 
+  rename("DM no test" = "Survival (CI)")
+DMcont <- ageDMtbl %>% 
+  filter(DM == "DM controlled")
+DMcont <- DMcont %>% 
+   subset(select = c("Survival (CI)", "age")) %>% 
+  rename("DM controlled" = "Survival (CI)")
+DMuncont <- ageDMtbl %>% 
+  filter(DM == "DM uncontrolled")
+DMuncont <- DMuncont %>% 
+   subset(select = c("Survival (CI)", "age")) %>% 
+  rename("DM uncontrolled" = "Survival (CI)")
+
+
+tableDM <- cbind(NoDM, DMdata, DMcont, DMuncont)
+ageDMsurvival <- tableDM %>% 
+  subset(select = c("age", "No diagnosis", "DM no test", "DM controlled", "DM uncontrolled"))
+ageDMsurvival
+setwd("D:/FirstnameLastname/Tibbles")
+write.table(ageDMsurvival, file = "Age DM survival table 1706", sep = ",", quote = FALSE, row.names = FALSE)
+```
+
+```{r survival for Hb}
+
+
+ageHbsurv <- summary(survfit(Surv(days_to_event, death_event) ~ Hb_category + age_category, data = categorised), times = 365.25)
+ageHbcols <- lapply(c(1, 3:6, 10, 15:16), function(x) ageHbsurv[x])
+ageHbtbl <-do.call(data.frame, ageHbcols)
+Hbsurv <- summary(survfit(Surv(days_to_event, death_event) ~ Hb_category, data = categorised), times = 365.25)
+Hbcols <- lapply(c(1, 3:6, 10, 15:16), function(x) Hbsurv[x])
+Hbtbl <-do.call(data.frame, Hbcols)
+ageHbtbl <- rbind(ageHbtbl,Hbtbl)
+
+ageHbtbl$surv <- round(ageHbtbl$surv, 3)
+ageHbtbl$lower <- round(ageHbtbl$lower, 3)
+ageHbtbl$upper <- round(ageHbtbl$upper, 3)
+ageHbtbl <- ageHbtbl %>% 
+  mutate(strata_new = c("Normal, age 60-69", "Normal, age 70-79", "Normal, age 80-89", "Normal, age over 90", "Normal, age under 60",
+                        "Low, age 60-69", "Low, age 70-79", "Low, age 80-89", "Low, age over 90", "Low, age under 60",
+                        "No test, age 60-69", "No test, age 70-79", "No test, age 80-89", "No test, age over 90", "No test, age under 60",
+                        "Normal, all ages", "Low, all ages", "No test, all ages")) %>% 
+  arrange(factor(strata_new, levels = c("Normal, age under 60", "Normal, age 60-69", "Normal, age 70-79", "Normal, age 80-89", "Normal, age over 90", "Normal, all ages", 
+                        "Low, age under 60", "Low, age 60-69", "Low, age 70-79", "Low, age 80-89", "Low, age over 90", "Low, all ages",
+                       "No test, age under 60", "No test, age 60-69", "No test, age 70-79", "No test, age 80-89", "No test, age over 90", "No test, all ages"))) %>% 
+  mutate(Hb = c("Normal", "Normal", "Normal", "Normal", "Normal", "Normal",
+                  "Low", "Low", "Low", "Low", "Low", "Low",
+                  "No test", "No test", "No test", "No test", "No test", "No test")) %>% 
+  mutate(age = c("Under 60", "60-69", "70-79", "80-89", "Over 90", "All ages",
+                 "Under 60", "60-69", "70-79", "80-89", "Over 90","All ages",
+                 "Under 60", "60-69", "70-79", "80-89", "Over 90", "All ages")) %>% 
+  mutate("Survival (CI)" = paste0(surv, " (", lower, "-", upper,")")) %>% 
+    subset(select = c("Survival (CI)", "strata_new", "age", "Hb", "strata"))
+
+
+NormalHb <- ageHbtbl %>% 
+  filter(Hb == "Normal")
+NormalHb <- NormalHb %>% 
+  subset(select = c("Survival (CI)", "age")) %>% 
+  rename("Normal" = "Survival (CI)")
+LowHb <- ageHbtbl %>% 
+  filter(Hb == "Low")
+LowHb <- LowHb %>% 
+   subset(select = c("Survival (CI)", "age")) %>% 
+  rename("Low" = "Survival (CI)")
+NoHb <- ageHbtbl %>% 
+  filter(Hb == "No test")
+NoHb <- NoHb %>% 
+   subset(select = c("Survival (CI)", "age")) %>% 
+  rename("No test" = "Survival (CI)")
+
+
+tableHb <- cbind(NormalHb, LowHb, NoHb)
+ageHbsurvival <- tableHb %>% 
+  subset(select = c("age", "Normal", "Low", "No test"))
+ageHbsurvival
+setwd("D:/FirstnameLastname/Tibbles")
+write.table(ageHbsurvival, file = "Age Hb survival table", sep = ",", quote = FALSE, row.names = FALSE)
+```
+```{r survival for Alb}
+
+
+agealbsurv <- summary(survfit(Surv(days_to_event, death_event) ~ alb_category + age_category, data = categorised), times = 365.25)
+agealbcols <- lapply(c(1, 3:6, 10, 15:16), function(x) agealbsurv[x])
+agealbtbl <-do.call(data.frame, agealbcols)
+albsurv <- summary(survfit(Surv(days_to_event, death_event) ~ alb_category, data = categorised), times = 365.25)
+albcols <- lapply(c(1, 3:6, 10, 15:16), function(x) albsurv[x])
+albtbl <-do.call(data.frame, albcols)
+agealbtbl <- rbind(agealbtbl,albtbl)
+
+agealbtbl$surv <- round(agealbtbl$surv, 3)
+agealbtbl$lower <- round(agealbtbl$lower, 3)
+agealbtbl$upper <- round(agealbtbl$upper, 3)
+agealbtbl <- agealbtbl %>% 
+  mutate(strata_new = c("Normal, age 60-69", "Normal, age 70-79", "Normal, age 80-89", "Normal, age over 90", "Normal, age under 60",
+                        "Low, age 60-69", "Low, age 70-79", "Low, age 80-89", "Low, age over 90", "Low, age under 60",
+                        "No test, age 60-69", "No test, age 70-79", "No test, age 80-89", "No test, age over 90", "No test, age under 60", "Normal all ages", "Low all ages", "No test all ages")) %>% 
+  arrange(factor(strata_new, levels = c("Normal, age under 60", "Normal, age 60-69", "Normal, age 70-79", "Normal, age 80-89", "Normal, age over 90", "Normal all ages", 
+                        "Low, age under 60", "Low, age 60-69", "Low, age 70-79", "Low, age 80-89", "Low, age over 90", "Low all ages", 
+                       "No test, age under 60", "No test, age 60-69", "No test, age 70-79", "No test, age 80-89", "No test, age over 90", "No test all ages"))) %>% 
+  mutate(alb = c("Normal", "Normal", "Normal", "Normal", "Normal", "Normal",
+                  "Low", "Low", "Low", "Low", "Low", "Low",
+                  "No test", "No test", "No test", "No test", "No test", "No test")) %>% 
+  mutate(age = c("Under 60", "60-69", "70-79", "80-89", "Over 90", "All ages",
+                 "Under 60", "60-69", "70-79", "80-89", "Over 90", "All ages",
+                 "Under 60", "60-69", "70-79", "80-89", "Over 90", "All ages")) %>% 
+  mutate("Survival (CI)" = paste0(surv, " (", lower, "-", upper,")")) %>% 
+    subset(select = c("Survival (CI)", "strata_new", "age", "alb", "strata"))
+
+
+Normalalb <- agealbtbl %>% 
+  filter(alb == "Normal")
+Normalalb <- Normalalb %>% 
+  subset(select = c("Survival (CI)", "age")) %>% 
+  rename("Normal" = "Survival (CI)")
+Lowalb <- agealbtbl %>% 
+  filter(alb == "Low")
+Lowalb <- Lowalb %>% 
+   subset(select = c("Survival (CI)", "age")) %>% 
+  rename("Low" = "Survival (CI)")
+Noalb <- agealbtbl %>% 
+  filter(alb == "No test")
+Noalb <- Noalb %>% 
+   subset(select = c("Survival (CI)", "age")) %>% 
+  rename("No test" = "Survival (CI)")
+
+
+tablealb <- cbind(Normalalb, Lowalb, Noalb)
+agealbsurvival <- tablealb %>% 
+  subset(select = c("age", "Normal", "Low", "No test"))
+agealbsurvival
+setwd("D:/FirstnameLastname/Tibbles")
+write.table(agealbsurvival, file = "Age alb survival table", sep = ",", quote = FALSE, row.names = FALSE)
+```
+```{r survival for hyp}
+
+table(categorised$hyp_category)
+agehypsurv <- summary(survfit(Surv(days_to_event, death_event) ~ hyp_category + age_category, data = categorised), times = 365.25)
+agehypcols <- lapply(c(1, 3:6, 10, 15:16), function(x) agehypsurv[x])
+agehyptbl <-do.call(data.frame, agehypcols)
+hypsurv <- summary(survfit(Surv(days_to_event, death_event) ~ hyp_category, data = categorised), times = 365.25)
+hypcols <- lapply(c(1, 3:6, 10, 15:16), function(x) hypsurv[x])
+hyptbl <-do.call(data.frame, hypcols)
+agehyptbl <- rbind(agehyptbl,hyptbl)
+
+agehyptbl$surv <- round(agehyptbl$surv, 3)
+agehyptbl$lower <- round(agehyptbl$lower, 3)
+agehyptbl$upper <- round(agehyptbl$upper, 3)
+agehyptbl <- agehyptbl %>% 
+  mutate(strata_new = c("Normal, age 60-69", "Normal, age 70-79", "Normal, age 80-89", "Normal, age over 90", "Normal, age under 60",
+                        "High, age 60-69", "High, age 70-79", "High, age 80-89", "High, age over 90", "High, age under 60",
+                        "Low, age 60-69", "Low, age 70-79", "Low, age 80-89", "Low, age over 90", "Low, age under 60",
+                        "No test, age 60-69", "No test, age 70-79", "No test, age 80-89", "No test, age over 90", "No test, age under 60",
+                        "Normal, all ages", "High, all ages", "Low, all ages", "No test, all ages")) %>% 
+  arrange(factor(strata_new, levels = c("Normal, age under 60", "Normal, age 60-69", "Normal, age 70-79", "Normal, age 80-89", "Normal, age over 90", "Normal, all ages", 
+                        "High, age under 60", "High, age 60-69", "High, age 70-79", "High, age 80-89", "High, age over 90", "High, all ages",
+                        "Low, age under 60", "Low, age 60-69", "Low, age 70-79", "Low, age 80-89", "Low, age over 90",  "Low, all ages",
+                       "No test, age under 60", "No test, age 60-69", "No test, age 70-79", "No test, age 80-89", "No test, age over 90", "No test, all ages"))) %>% 
+  mutate(hyp = c("Normal", "Normal", "Normal", "Normal", "Normal", "Normal",
+                  "High", "High", "High", "High", "High", "High",
+                 "Low", "Low", "Low", "Low", "Low", "Low",
+                  "No test", "No test", "No test", "No test", "No test", "No test")) %>% 
+  mutate(age = c("Under 60", "60-69", "70-79", "80-89", "Over 90", "All ages",
+                 "Under 60", "60-69", "70-79", "80-89", "Over 90", "All ages",
+                 "Under 60", "60-69", "70-79", "80-89", "Over 90", "All ages",
+                 "Under 60", "60-69", "70-79", "80-89", "Over 90", "All ages")) %>% 
+  mutate("Survival (CI)" = paste0(surv, " (", lower, "-", upper,")")) %>% 
+    subset(select = c("Survival (CI)", "strata_new", "age", "hyp", "strata"))
+
+Normalhyp <- agehyptbl %>% 
+  filter(hyp == "Normal")
+Normalhyp <- Normalhyp %>% 
+  subset(select = c("Survival (CI)", "age")) %>% 
+  rename("Normal" = "Survival (CI)")
+Highhyp <- agehyptbl %>% 
+  filter(hyp == "High")
+Highhyp <- Highhyp %>% 
+   subset(select = c("Survival (CI)", "age")) %>% 
+  rename("High" = "Survival (CI)")
+Lowhyp <- agehyptbl %>% 
+  filter(hyp == "Low")
+Lowhyp <- Lowhyp %>% 
+   subset(select = c("Survival (CI)", "age")) %>% 
+  rename("Low" = "Survival (CI)")
+Nohyp <- agehyptbl %>% 
+  filter(hyp == "No test")
+Nohyp <- Nohyp %>% 
+   subset(select = c("Survival (CI)", "age")) %>% 
+  rename("No test" = "Survival (CI)")
+
+
+tablehyp <- cbind(Normalhyp, Highhyp, Lowhyp, Nohyp)
+agehypsurvival <- tablehyp %>% 
+  subset(select = c("age", "Normal", "High", "Low", "No test"))
+agehypsurvival
+setwd("D:/FirstnameLastname/Tibbles")
+write.table(agehypsurvival, file = "Age hyp survival table", sep = ",", quote = FALSE, row.names = FALSE)
+```
+```{r survival for BMI}
+
+ageBMIsurv <- summary(survfit(Surv(days_to_event, death_event) ~ BMI_category + age_category, data = categorised), times = 365.25)
+ageBMIcols <- lapply(c(1, 3:6, 10, 15:16), function(x) ageBMIsurv[x])
+ageBMItbl <-do.call(data.frame, ageBMIcols)
+BMIsurv <- summary(survfit(Surv(days_to_event, death_event) ~ BMI_category, data = categorised), times = 365.25)
+BMIcols <- lapply(c(1, 3:6, 10, 15:16), function(x) BMIsurv[x])
+BMItbl <-do.call(data.frame, BMIcols)
+ageBMItbl <- rbind(ageBMItbl,BMItbl)
+
+ageBMItbl$surv <- round(ageBMItbl$surv, 3)
+ageBMItbl$lower <- round(ageBMItbl$lower, 3)
+ageBMItbl$upper <- round(ageBMItbl$upper, 3)
+ageBMItbl <- ageBMItbl %>% 
+  mutate(strata_new = c("Normal, age 60-69", "Normal, age 70-79", "Normal, age 80-89", "Normal, age over 90", "Normal, age under 60",
+                        "No data, age 60-69", "No data, age 70-79", "No data, age 80-89", "No data, age over 90", "No data, age under 60",
+                        "Obesity1, age 60-69", "Obesity1, age 70-79", "Obesity1, age 80-89", "Obesity1, age over 90", "Obesity1, age under 60",
+                        "Obesity2, age 60-69", "Obesity2, age 70-79", "Obesity2, age 80-89", "Obesity2, age over 90", "Obesity2, age under 60",
+                        "Obesity3, age 60-69", "Obesity3, age 70-79", "Obesity3, age 80-89", "Obesity3, age over 90", "Obesity3, age under 60",
+                        "Overweight, age 60-69", "Overweight, age 70-79", "Overweight, age 80-89", "Overweight, age over 90", "Overweight, age under 60",
+                        "Underweight, age 60-69", "Underweight, age 70-79", "Underweight, age 80-89", "Underweight, age over 90", "Underweight, age under 60",
+                        "Normal, all ages", "No data, all ages", "Obesity1, all ages", "Obesity2, all ages", "Obesity3, all ages", "Overweight, all ages", "Underweight, all ages"))%>% 
+  arrange(factor(strata_new, levels = c("Underweight, age under 60", "Underweight, age 60-69", 
+                                        "Underweight, age 70-79", "Underweight, age 80-89", "Underweight, age over 90", "Underweight, all ages",
+                                        "Normal, age under 60", "Normal, age 60-69", "Normal, age 70-79", "Normal, age 80-89", "Normal, age over 90", "Normal, all ages",
+                        "Overweight, age under 60", "Overweight, age 60-69", "Overweight, age 70-79", 
+                        "Overweight, age 80-89", "Overweight, age over 90", "Overweight, all ages",
+                       "Obesity1, age under 60", "Obesity1, age 60-69", "Obesity1, age 70-79", "Obesity1, age 80-89", "Obesity1, age over 90", "Obesity1, all ages",
+                       "Obesity2, age under 60", "Obesity2, age 60-69", "Obesity2, age 70-79", "Obesity2, age 80-89", "Obesity2, age over 90", "Obesity2, all ages",
+                       "Obesity3, age under 60", "Obesity3, age 60-69", "Obesity3, age 70-79", "Obesity3, age 80-89", "Obesity3, age over 90", "Obesity3, all ages",
+                       "No data, age under 60", "No data, age 60-69", "No data, age 70-79", "No data, age 80-89", "No data, age over 90", "No data, all ages"
+                       ))) %>% 
+  mutate(BMI = c("Underweight", "Underweight", "Underweight", "Underweight", "Underweight", "Underweight",
+                 "Normal", "Normal", "Normal", "Normal", "Normal", "Normal",
+                 "Overweight", "Overweight", "Overweight", "Overweight", "Overweight", "Overweight",
+                 "Obesity1", "Obesity1", "Obesity1", "Obesity1", "Obesity1", "Obesity1", 
+                 "Obesity2", "Obesity2", "Obesity2", "Obesity2", "Obesity2", "Obesity2", 
+                 "Obesity3", "Obesity3", "Obesity3", "Obesity3", "Obesity3", "Obesity3",
+                 "No data", "No data", "No data", "No data", "No data", "No data"
+                  )) %>% 
+  mutate(age = c("Under 60", "60-69", "70-79", "80-89", "Over 90", "All ages",
+                 "Under 60", "60-69", "70-79", "80-89", "Over 90", "All ages",
+                 "Under 60", "60-69", "70-79", "80-89", "Over 90", "All ages",
+                 "Under 60", "60-69", "70-79", "80-89", "Over 90", "All ages",
+                 "Under 60", "60-69", "70-79", "80-89", "Over 90", "All ages",
+                 "Under 60", "60-69", "70-79", "80-89", "Over 90", "All ages",
+                 "Under 60", "60-69", "70-79", "80-89", "Over 90", "All ages")) %>% 
+  mutate("Survival (CI)" = paste0(surv, " (", lower, "-", upper,")")) %>% 
+    subset(select = c("Survival (CI)", "strata_new", "age", "BMI", "strata"))
+
+NormalBMI <- ageBMItbl %>% 
+  filter(BMI == "Normal")
+NormalBMI <- NormalBMI %>% 
+  subset(select = c("Survival (CI)", "age")) %>% 
+  rename("Normal weight" = "Survival (CI)")
+NoBMI <- ageBMItbl %>% 
+  filter(BMI == "No data")
+NoBMI <- NoBMI %>% 
+   subset(select = c("Survival (CI)", "age")) %>% 
+  rename("No data" = "Survival (CI)")
+UnderBMI <- ageBMItbl %>% 
+  filter(BMI == "Underweight")
+UnderBMI <- UnderBMI %>% 
+   subset(select = c("Survival (CI)", "age")) %>% 
+  rename("Underweight" = "Survival (CI)")
+Obesity1BMI <- ageBMItbl %>% 
+  filter(BMI == "Obesity1")
+Obesity1BMI <- Obesity1BMI %>% 
+   subset(select = c("Survival (CI)", "age")) %>% 
+  rename("Obesity 1" = "Survival (CI)")
+Obesity2BMI <- ageBMItbl %>% 
+  filter(BMI == "Obesity2")
+Obesity2BMI <- Obesity2BMI %>% 
+   subset(select = c("Survival (CI)", "age")) %>% 
+  rename("Obesity 2" = "Survival (CI)")
+Obesity3BMI <- ageBMItbl %>% 
+  filter(BMI == "Obesity3")
+Obesity3BMI <- Obesity3BMI %>% 
+   subset(select = c("Survival (CI)", "age")) %>% 
+  rename("Obesity 3" = "Survival (CI)")
+OverBMI <- ageBMItbl %>% 
+  filter(BMI == "Overweight")
+OverBMI <- OverBMI %>% 
+   subset(select = c("Survival (CI)", "age")) %>% 
+  rename("Overweight" = "Survival (CI)")
+
+tableBMI <- cbind(UnderBMI, NormalBMI, OverBMI, Obesity1BMI, Obesity2BMI, Obesity3BMI, NoBMI)
+ageBMIsurvival <- tableBMI %>% 
+  subset(select = c("age", "Underweight", "Normal weight", "Overweight", "Obesity 1", "Obesity 2", "Obesity 3", "No data"))
+ageBMIsurvival
+setwd("D:/FirstnameLastname/Tibbles")
+write.table(ageBMIsurvival, file = "Age BMI survival table", sep = ",", quote = FALSE, row.names = FALSE)
+```
